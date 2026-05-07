@@ -1,0 +1,20 @@
+name = "vilcami-worker"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+[triggers]
+crons = ["0 * * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "vilcami-db"
+database_id = "PLACEHOLDER_WILL_BE_CREATED"
+
+[[kv_namespaces]]
+binding = "TELEMETRY_RAW"
+id = "PLACEHOLDER_WILL_BE_CREATED"
+
+[[kv_namespaces]]
+binding = "SECRETS_VAULT"
+id = "PLACEHOLDER_WILL_BE_CREATED"
