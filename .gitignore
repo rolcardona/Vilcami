@@ -7,3 +7,10 @@ coverage/
 .env
 .env.*
 !.env.example
+
+# Supabase local temp
+supabase/.temp/
+
+# Encrypted credentials — never commit these
+scripts/tuya-credentials.key
+scripts/tuya-credentials.encrypted.json
