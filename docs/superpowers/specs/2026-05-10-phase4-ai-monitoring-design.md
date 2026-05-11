@@ -116,7 +116,16 @@ interface RuleEvaluationResult {
 - Collect all triggered rules into a result array
 - Respect maintenance windows (skip evaluation if within window)
 - Respect `enabled` flag (skip disabled rules)
-- Pure function: `evaluateRules(input, rules) => RuleEvaluationResult[]`
+- Pure function:
+```typescript
+function evaluateRules(
+  rules: AlertRuleDefinition[],
+  telemetry: TelemetryReading[],
+  hourly: HourlyAggregationRow[],
+  daily: DailySummaryRow[],
+  evaluationTimestamp: number,
+): RuleEvaluationResult[]
+```
 
 **Approximate lines:** 120
 
@@ -222,6 +231,7 @@ interface AlertGenerationInput {
   organizationName: string;
   recentAverage: number;
   unit: string;
+  deviation: number; // Computed by the orchestrator as Math.abs(currentValue - thresholdValue)
 }
 
 interface AlertGenerationOutput {
@@ -266,12 +276,24 @@ interface NotificationDispatchResult {
   failedChannels: FailedChannel[];
 }
 
+interface DispatchedChannel {
+  channel: string; // "whatsapp" | "sms" | "email" | "push"
+  messageId: string | null;
+  recipient: string;
+}
+
+interface FailedChannel {
+  channel: string;
+  error: string;
+  recipient: string;
+}
+
 interface RecipientContact {
-  memberName: string;
-  whatsappNumber: string | null;
-  smsNumber: string | null;
-  email: string | null;
-  pushSubscriptionEndpoint: string | null;
+  memberName: string;       // from member_profiles.full_name
+  whatsappNumber: string | null;  // from member_profiles.whatsapp_number
+  smsNumber: string | null;       // from member_profiles.sms_number
+  email: string | null;           // from member_profiles.email
+  pushSubscriptionEndpoint: string | null;  // from push_subscriptions.endpoint
 }
 ```
 
@@ -357,7 +379,7 @@ class EmailNotificationAdapter implements NotificationAdapter {
 
 Sends browser push notifications via the Web Push API (RFC 8030). Uses VAPID keys for authentication.
 
-- Push subscriptions stored in D1 (future: `push_subscriptions` table)
+- Push subscriptions stored in the `push_subscriptions` table (created in Phase 4, see section 4.4)
 - Uses `crypto.subtle` for ECDSA signing (VAPID JWT)
 - Payload: JSON with alert summary, click action URL
 - TTL: 1 hour for P2/P3, 24 hours for P0/P1
@@ -509,7 +531,38 @@ Add the new schemas to the barrel export:
 ```typescript
 export { alerts, alertRuleTypeEnum } from "./alerts";
 export { pushSubscriptions } from "./push-subscriptions";
+export { memberProfiles } from "./member-profiles";
 ```
+
+### 4.6 New Table: `member_profiles`
+
+The `organization_members` table only stores role and status — it has NO contact data (phone numbers, emails, or names). Notification dispatch requires recipient contact info, so this new table stores it per member.
+
+```typescript
+// src/schema/member-profiles.ts
+import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { organizationMembers } from "./organization-members";
+
+export const memberProfiles = sqliteTable("member_profiles", {
+  id: text("id").primaryKey(),
+  memberId: text("member_id").notNull().references(() => organizationMembers.id),
+  organizationId: text("organization_id").notNull(),
+  fullName: text("full_name").notNull(),
+  email: text("email"),
+  whatsappNumber: text("whatsapp_number"),
+  smsNumber: text("sms_number"),
+  preferredChannel: text("preferred_channel", { enum: ["whatsapp", "sms", "email", "push"] }).default("email"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+});
+```
+
+**Design decisions:**
+- `memberId` references `organization_members.id` — one profile per member
+- `organizationId` is denormalized for org-scoped queries (avoids JOINing back to `organization_members` just to filter by org)
+- `preferredChannel` defaults to `"email"` as the safest universal channel
+- Phone fields are nullable — not all members need WhatsApp or SMS
+- This table is populated during member invitation (Phase 3 AUTH) or via a profile management endpoint (Phase 6 UI)
 
 ---
 
@@ -895,14 +948,14 @@ export interface AlertMessage {
 }
 
 export interface RecipientContact {
-  memberName: string;
+  memberName: string;       // from member_profiles.full_name
   memberId: string;
-  whatsappNumber: string | null;
-  smsNumber: string | null;
-  email: string | null;
-  pushSubscriptionEndpoint: string | null;
-  pushP256dhKey: string | null;
-  pushAuthKey: string | null;
+  whatsappNumber: string | null;  // from member_profiles.whatsapp_number
+  smsNumber: string | null;       // from member_profiles.sms_number
+  email: string | null;           // from member_profiles.email
+  pushSubscriptionEndpoint: string | null;  // from push_subscriptions.endpoint
+  pushP256dhKey: string | null;             // from push_subscriptions.p256dh_key
+  pushAuthKey: string | null;               // from push_subscriptions.auth_key
 }
 
 export interface SendResult {
@@ -1160,6 +1213,9 @@ export default {
        |
    3e. GET raw telemetry from KV (last hour, for streak evaluation)
        |  KV.list({ prefix: "telemetry:{orgId}:" })
+       |  NOTE: KV keys are stored as telemetry:{orgId}:{deviceId}:{timestamp}:{sensorId}
+       |  (see telemetry-ingestion.service.ts), so the per-org prefix is correct.
+       |  This differs from the aggregation cron which uses prefix "telemetry:" to list ALL orgs.
        |  Parse each entry from JSON
        |
    3f. EVALUATE rules
@@ -1195,11 +1251,14 @@ export default {
               | UPDATE alerts SET alert_lifecycle_id = {lifecycleId}
               | WHERE id = {alertId}
               |
+              | **IMPORTANT:** Steps 3g-iii through 3g-vi MUST be executed within a D1 batch
+              | to ensure atomicity. If any step fails, the entire batch rolls back.
+              |
        3g-vii. GET notification recipients
               | SELECT om.id, om.supabase_user_id FROM organization_members om
               | WHERE om.organization_id = {orgId} AND om.status = 'active'
+              | JOIN with member_profiles for phone/email/name
               | JOIN with push_subscriptions for push endpoints
-              | JOIN with auth metadata for phone/email
               |
        3g-viii. DISPATCH notifications
               | dispatchNotifications(env, input)
@@ -1212,6 +1271,10 @@ export default {
               |
    3h. LOG cycle result for this org
        | console.log(`[monitoring] Org ${orgId}: ${evaluated} rules, ${triggered} alerts, ${sent} notifications`)
+       |
+       **Error handling:** Each organization's processing is wrapped in try/catch. If one org fails,
+       the error is logged and the cycle continues to the next org. The monitoring cycle MUST NOT
+       abort entirely because one org's rules fail.
        |
 4. RETURN: MonitoringCycleResult summary
 ```
@@ -1556,6 +1619,7 @@ src/
   schema/
     alerts.ts                                    (~50 lines) NEW
     push-subscriptions.ts                        (~25 lines) NEW
+    member-profiles.ts                            (~30 lines) NEW
     index.ts                                     (~18 lines) MODIFY — add exports
   
   services/
@@ -1608,7 +1672,7 @@ src/
       alerts.test.ts                              (~50 lines)  NEW
 ```
 
-**Total new files:** 22
+**Total new files:** 23
 **Total modified files:** 3 (env.ts, index.ts, schema/index.ts)
 **Total estimated lines of new code:** ~2,800
 **Total estimated lines of tests:** ~1,100
@@ -1617,7 +1681,7 @@ src/
 
 ## Appendix A: Drizzle Migration Reference
 
-The following migration adds the `alerts` table, `push_subscriptions` table, extends the `alert_rules.condition_operator` enum, and adds the `alert_id` column to `alert_lifecycle`. The migration file is created by Drizzle Kit and should NOT be written manually — this section documents the expected changes for reference only.
+The following migration adds the `alerts` table, `push_subscriptions` table, `member_profiles` table, extends the `alert_rules.condition_operator` enum, and adds the `alert_id` column to `alert_lifecycle`. The migration file is created by Drizzle Kit and should NOT be written manually — this section documents the expected changes for reference only.
 
 ```sql
 -- New table: alerts
@@ -1659,6 +1723,22 @@ CREATE TABLE push_subscriptions (
 
 CREATE INDEX idx_push_subscriptions_org ON push_subscriptions(organization_id);
 CREATE INDEX idx_push_subscriptions_member ON push_subscriptions(member_id);
+
+-- New table: member_profiles (contact data for notification recipients)
+CREATE TABLE member_profiles (
+  id TEXT PRIMARY KEY,
+  member_id TEXT NOT NULL REFERENCES organization_members(id),
+  organization_id TEXT NOT NULL,
+  full_name TEXT NOT NULL,
+  email TEXT,
+  whatsapp_number TEXT,
+  sms_number TEXT,
+  preferred_channel TEXT DEFAULT 'email',
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX idx_member_profiles_org ON member_profiles(organization_id);
+CREATE INDEX idx_member_profiles_member ON member_profiles(member_id);
 
 -- Extend alert_lifecycle with alert_id reference
 ALTER TABLE alert_lifecycle ADD COLUMN alert_id TEXT REFERENCES alerts(id);
