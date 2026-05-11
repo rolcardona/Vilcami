@@ -29,6 +29,19 @@
 - Integration test: 7 tests covering full authMiddleware → orgScopingMiddleware chain
 - Total: 198/198 tests pasando, 0 TypeScript errors
 
+**FASE 4 — AI: Completada**
+- DB schemas: alerts, push_subscriptions, member_profiles, alert_lifecycle (FK), alert_rules (conditionOperator enum extendido), alert_escalations, alert_audit_log
+- Zod validators: ai-context.validator.ts, alert.validator.ts (5 endpoint validators)
+- Rule Engine helpers: 6 pure functions (P0-P3) + 41 tests
+- Rule Engine service: evaluateRules orchestrator + 9 tests
+- Alert Generator: Workers AI (@cf/meta/llama-3-8b-instruct) + fallback template + 12 tests
+- Notification adapters: Twilio, Email, Push, Registry factory + 66 tests
+- Notification Dispatcher: severity routing (P0-P3) + 19 tests
+- Alert Management service + routes: 7 endpoints (list, get, acknowledge, resolve, shelve, active count, push subscribe) + 20 tests
+- AI Orchestrator: cron-driven monitoring cycle (sequential org processing, error isolation) + 5 tests
+- Workers AI binding: env.ts (Ai type), wrangler.toml ([ai] section), migration
+- Total: 370 tests pasando, 0 TypeScript errors
+
 ## Estructura del Proyecto (Actualizada)
 ```
 src/
@@ -36,27 +49,39 @@ src/
     device-adapter.interface.ts
     simulated-device.provider.ts
     device-adapter.factory.ts
+    notification-adapter.interface.ts
+    notification-twilio.adapter.ts
+    notification-email.adapter.ts
+    notification-push.adapter.ts
+    notification-registry.ts
   auth/
     jwks-cache.service.ts
     jwt-verifier.ts
   db/
     schemas/ (16 tablas)
-    index.ts
   middleware/
     auth.middleware.ts
   routes/
     devices.routes.ts
     telemetry.routes.ts
+    alerts.routes.ts
   services/
     aggregation-cron.service.ts
     aggregation-cron.helpers.ts
     device-collection-cron.service.ts
     device-management.service.ts
     telemetry-ingestion.service.ts
+    rule-engine.helpers.ts
+    rule-engine.service.ts
+    rule-engine.types.ts
+    alert-generator.service.ts
+    notification-dispatcher.service.ts
+    alert-management.service.ts
+    ai-orchestrator.service.ts
   utils/
     db.util.ts
     gaussian-noise.util.ts
-  validators/ (5 validators)
+  validators/ (7 validators)
   index.ts
   types/
     env.ts
@@ -68,14 +93,13 @@ supabase/
 ```
 
 ## Próximos pasos
-1. **FASE 4 — AI:** Orquestador IA, reglas industriales, reportes de impacto
-2. **FASE 5 — BILLING:** Wompi Sandbox -> webhooks -> validacion diaria
-3. **FASE 6 — UI:** 4 dashboards — ver `apps/web/`
+1. **FASE 5 — BILLING:** Wompi Sandbox -> webhooks -> validacion diaria
+2. **FASE 6 — UI:** 4 dashboards — ver `apps/web/`
 
 ## Errores conocidos
 - wrangler.toml tiene IDs PLACEHOLDER para D1 y KV — crear recursos reales con `wrangler login` + `wrangler d1 create` + `wrangler kv namespace create`
 - vitest environment es "node" (no Workers pool) — migrar a `@cloudflare/vitest-pool-workers` antes de Fase 6
-- Tests usan mocks de Drizzle con patrón chainable (no distinguen queries individuales) — mejorar en Fase 4
+- Tests usan mocks de Drizzle con patrón chainable (no distinguen queries individuales) — mejorar en producción
 
 ## Decisiones de Arquitectura (resumen)
 - Roles: admin_vilcami (plataforma) + admin (org, MFA obligatorio) + user (org)
@@ -86,3 +110,5 @@ supabase/
 - D1: 1 DB por org + KV con TTL 7d para telemetria cruda
 - Trial: 30 dias, 3 dispositivos, sin add-ons
 - Vault: Web Crypto puro (btoa/atob), sin dependencia de Buffer ni nodejs_compat para cifrado
+- Severity: alert_rules usan p0-p3, alerts y notifications usan critical/high/medium/low
+- Orchestrator: procesa organizaciones secuencialmente, error isolation por org
