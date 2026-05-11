@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { alertRules, alertSeverityEnum, alertConditionOperatorEnum } from "../../schema/alert-rules";
-import { alertLifecycle, alertLifecycleStatusEnum } from "../../schema/alert-lifecycle";
+import { alertRules } from "../../schema/alert-rules";
+import { alertLifecycle } from "../../schema/alert-lifecycle";
 import { alertEscalations } from "../../schema/alert-escalations";
-import { alertAuditLog, alertAuditActionEnum } from "../../schema/alert-audit-log";
+import { alertAuditLog } from "../../schema/alert-audit-log";
 
 describe("alert_rules schema", () => {
   it("should have all required columns", () => {
@@ -16,17 +16,17 @@ describe("alert_rules schema", () => {
   });
 
   it("should have severity enum with p0-p3", () => {
-    expect(alertSeverityEnum.config.enumValues).toEqual(["p0", "p1", "p2", "p3"]);
+    expect(alertRules.severity.enumValues).toEqual(["p0", "p1", "p2", "p3"]);
   });
 
   it("should have conditionOperator enum", () => {
-    expect(alertConditionOperatorEnum.config.enumValues).toEqual(["gt", "lt", "gte", "lte", "eq", "between"]);
+    expect(alertRules.conditionOperator.enumValues).toEqual(["gt", "lt", "gte", "lte", "eq", "between"]);
   });
 });
 
 describe("alert_lifecycle schema", () => {
   it("should have ISA-18.2 status enum", () => {
-    expect(alertLifecycleStatusEnum.config.enumValues).toEqual([
+    expect(alertLifecycle.status.enumValues).toEqual([
       "active", "acknowledged", "returned_to_normal", "shelved", "suppressed", "out_of_service"
     ]);
   });
@@ -63,7 +63,7 @@ describe("alert_audit_log schema", () => {
   });
 
   it("should have audit action enum", () => {
-    expect(alertAuditActionEnum.config.enumValues).toEqual([
+    expect(alertAuditLog.action.enumValues).toEqual([
       "triggered", "acknowledged", "escalated", "shelved", "suppressed", "returned_to_normal"
     ]);
   });

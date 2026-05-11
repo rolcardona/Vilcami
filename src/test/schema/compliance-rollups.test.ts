@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { complianceTemplates, complianceRegulationEnum } from "../../schema/compliance-templates";
+import { complianceTemplates } from "../../schema/compliance-templates";
 import { complianceReports } from "../../schema/compliance-reports";
 import { hourlyAverages } from "../../schema/hourly-averages";
 import { dailySummaries } from "../../schema/daily-summaries";
@@ -16,7 +16,7 @@ describe("compliance_templates schema", () => {
   });
 
   it("should have regulation enum with HACCP, INVIMA, EN12830, CFIA", () => {
-    expect(complianceRegulationEnum.config.enumValues).toEqual([
+    expect(complianceTemplates.regulation.enumValues).toEqual([
       "HACCP", "INVIMA_DEC1500", "EN12830", "CFIA_PREVENTIVE_CONTROLS"
     ]);
   });

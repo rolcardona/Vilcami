@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { telemetryValidator } from "../../validators/telemetry.validator";
-import { deviceValidator } from "../../validators/device.validator";
+import { deviceValidator, deviceCreateValidator, deviceUpdateValidator } from "../../validators/device.validator";
 import { alertRuleValidator } from "../../validators/alert.validator";
 import { billingEventValidator } from "../../validators/billing.validator";
 import { complianceTemplateValidator } from "../../validators/compliance.validator";
@@ -40,6 +40,58 @@ describe("telemetryValidator", () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it("should reject zero timestamp (must be positive)", () => {
+    const result = telemetryValidator.safeParse({
+      organizationId: "org-123",
+      deviceId: "dev-456",
+      sensorId: "sensor-789",
+      value: 23.5,
+      unit: "°C",
+      timestamp: 0,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("should reject negative timestamp", () => {
+    const result = telemetryValidator.safeParse({
+      organizationId: "org-123",
+      deviceId: "dev-456",
+      sensorId: "sensor-789",
+      value: 23.5,
+      unit: "°C",
+      timestamp: -1,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("should accept valid optional metadata", () => {
+    const result = telemetryValidator.safeParse({
+      organizationId: "org-123",
+      deviceId: "dev-456",
+      sensorId: "sensor-789",
+      value: 23.5,
+      unit: "°C",
+      timestamp: Date.now(),
+      metadata: { location: "cold-room-3", batch: "B2025" },
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.metadata).toEqual({ location: "cold-room-3", batch: "B2025" });
+    }
+  });
+
+  it("should reject non-integer timestamp (float)", () => {
+    const result = telemetryValidator.safeParse({
+      organizationId: "org-123",
+      deviceId: "dev-456",
+      sensorId: "sensor-789",
+      value: 23.5,
+      unit: "°C",
+      timestamp: 1700000000.5,
+    });
+    expect(result.success).toBe(false);
+  });
 });
 
 describe("deviceValidator", () => {
@@ -60,6 +112,57 @@ describe("deviceValidator", () => {
       protocolType: "zigbee",
     });
     expect(result.success).toBe(false);
+  });
+
+  it("should reject latitude above 90", () => {
+    const result = deviceValidator.safeParse({
+      name: "Camara Fria #3",
+      deviceExternalId: "tuya-device-001",
+      protocolType: "tuya",
+      latitude: 91,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("should reject latitude below -90", () => {
+    const result = deviceValidator.safeParse({
+      name: "Camara Fria #3",
+      deviceExternalId: "tuya-device-001",
+      protocolType: "tuya",
+      latitude: -91,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("should reject longitude above 180", () => {
+    const result = deviceValidator.safeParse({
+      name: "Camara Fria #3",
+      deviceExternalId: "tuya-device-001",
+      protocolType: "tuya",
+      longitude: 181,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("should reject longitude below -180", () => {
+    const result = deviceValidator.safeParse({
+      name: "Camara Fria #3",
+      deviceExternalId: "tuya-device-001",
+      protocolType: "tuya",
+      longitude: -181,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("should accept valid latitude and longitude bounds", () => {
+    const result = deviceValidator.safeParse({
+      name: "Camara Fria #3",
+      deviceExternalId: "tuya-device-001",
+      protocolType: "tuya",
+      latitude: -34.6037,
+      longitude: -58.3816,
+    });
+    expect(result.success).toBe(true);
   });
 });
 
@@ -122,6 +225,73 @@ describe("complianceTemplateValidator", () => {
       countryCode: "CO",
       thresholds: { coldRoom: { minTempCelsius: 2, maxTempCelsius: 4 } },
       reportSchedule: "daily",
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("deviceCreateValidator", () => {
+  it("should accept valid device creation payload", () => {
+    const result = deviceCreateValidator.safeParse({
+      organizationId: "org-001",
+      name: "Camara Fria #3",
+      deviceExternalId: "tuya-device-001",
+      protocolType: "tuya",
+      location: "Planta Baja",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject missing organizationId", () => {
+    const result = deviceCreateValidator.safeParse({
+      name: "Camara Fria #3",
+      deviceExternalId: "tuya-device-001",
+      protocolType: "tuya",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("should reject unknown fields (strict mode)", () => {
+    const result = deviceCreateValidator.safeParse({
+      organizationId: "org-001",
+      name: "Camara Fria #3",
+      deviceExternalId: "tuya-device-001",
+      protocolType: "tuya",
+      randomUnknownField: "should-be-rejected",
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("deviceUpdateValidator", () => {
+  it("should accept partial update with just name", () => {
+    const result = deviceUpdateValidator.safeParse({
+      name: "Nuevo nombre",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("should accept empty object (all fields optional)", () => {
+    const result = deviceUpdateValidator.safeParse({});
+    expect(result.success).toBe(true);
+  });
+
+  it("should reject unknown fields (strict mode)", () => {
+    const result = deviceUpdateValidator.safeParse({
+      name: "Nuevo nombre",
+      unknownField: "intruso",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("should accept full update with all fields", () => {
+    const result = deviceUpdateValidator.safeParse({
+      name: "Camara Fria #5",
+      deviceExternalId: "tuya-device-002",
+      protocolType: "modbus",
+      location: "Sotano",
+      latitude: 4.711,
+      longitude: -74.072,
     });
     expect(result.success).toBe(true);
   });

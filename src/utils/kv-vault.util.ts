@@ -3,11 +3,28 @@
  * stored in Cloudflare KV (Tuya local keys, API secrets, etc.)
  *
  * Uses Web Crypto API (crypto.subtle) available in Cloudflare Workers.
- * Buffer is available via the nodejs_compat compatibility flag.
+ * No Node.js Buffer dependency — pure btoa/atob for base64 encoding.
  */
 
 const ALGORITHM = "AES-GCM";
 const IV_LENGTH = 12;
+
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+function base64ToUint8Array(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
 
 export interface EncryptedValue {
   ciphertext: string;
@@ -21,7 +38,6 @@ async function getEncryptionKey(keyMaterial?: string): Promise<CryptoKey> {
     throw new Error("ENCRYPTION_KEY is required");
   }
   const encoded = new TextEncoder().encode(key);
-  // Hash the key to get exactly 256 bits for AES-256
   const hash = await crypto.subtle.digest("SHA-256", encoded);
   return await crypto.subtle.importKey(
     "raw",
@@ -51,9 +67,9 @@ export async function encryptValue(
   const tag = encryptedBytes.slice(-16);
 
   return {
-    ciphertext: Buffer.from(ciphertext).toString("base64"),
-    iv: Buffer.from(iv).toString("base64"),
-    tag: Buffer.from(tag).toString("base64"),
+    ciphertext: uint8ArrayToBase64(ciphertext),
+    iv: uint8ArrayToBase64(iv),
+    tag: uint8ArrayToBase64(tag),
   };
 }
 
@@ -62,11 +78,9 @@ export async function decryptValue(
   encryptionKey?: string,
 ): Promise<string> {
   const key = await getEncryptionKey(encryptionKey);
-  const iv = new Uint8Array(Buffer.from(encrypted.iv, "base64"));
-  const ciphertext = new Uint8Array(
-    Buffer.from(encrypted.ciphertext, "base64"),
-  );
-  const tag = new Uint8Array(Buffer.from(encrypted.tag, "base64"));
+  const iv = base64ToUint8Array(encrypted.iv);
+  const ciphertext = base64ToUint8Array(encrypted.ciphertext);
+  const tag = base64ToUint8Array(encrypted.tag);
 
   const combined = new Uint8Array(ciphertext.length + tag.length);
   combined.set(ciphertext);

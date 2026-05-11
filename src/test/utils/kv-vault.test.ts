@@ -47,4 +47,26 @@ describe("KV Vault (AES-GCM)", () => {
       decryptValue(encrypted, "wrong-key-1234567890abcdef"),
     ).rejects.toThrow();
   });
+
+  it("should throw when encrypting without an encryption key", async () => {
+    await expect(encryptValue("secret", "")).rejects.toThrow("ENCRYPTION_KEY is required");
+  });
+
+  it("should throw when encrypting with undefined key", async () => {
+    await expect(encryptValue("secret", undefined)).rejects.toThrow("ENCRYPTION_KEY is required");
+  });
+
+  it("should handle non-ASCII characters in encryption round-trip", async () => {
+    const secret = "clave-secreta-ñ-ü-é";
+    const encrypted = await encryptValue(secret, TEST_KEY);
+    const decrypted = await decryptValue(encrypted, TEST_KEY);
+    expect(decrypted).toBe(secret);
+  });
+
+  it("should handle empty string in encryption round-trip", async () => {
+    const secret = "";
+    const encrypted = await encryptValue(secret, TEST_KEY);
+    const decrypted = await decryptValue(encrypted, TEST_KEY);
+    expect(decrypted).toBe(secret);
+  });
 });
