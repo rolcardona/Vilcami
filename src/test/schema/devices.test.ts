@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { devices, deviceProtocolTypeEnum, deviceStatusEnum } from "../../schema/devices";
+import { devices } from "../../schema/devices";
 import { deviceSensors } from "../../schema/device-sensors";
 
 describe("devices schema", () => {
@@ -14,8 +14,7 @@ describe("devices schema", () => {
   });
 
   it("should have protocolType as enum with tuya and modbus", () => {
-    // Drizzle v0.38+: standalone text() enum builders store values in .config.enumValues
-    expect(deviceProtocolTypeEnum.config.enumValues).toEqual(["tuya", "modbus"]);
+    expect(devices.protocolType.enumValues).toEqual(["tuya", "modbus"]);
   });
 
   it("should have organizationId as not null", () => {

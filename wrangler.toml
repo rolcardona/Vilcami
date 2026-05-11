@@ -1,10 +1,13 @@
 name = "vilcami-worker"
 main = "src/index.ts"
-compatibility_date = "2024-12-01"
+compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat"]
 
 [triggers]
 crons = ["0 * * * *"]
+
+[vars]
+SUPABASE_URL = "https://fqcugzmklzdjwwvwnslg.supabase.co"
 
 [[d1_databases]]
 binding = "DB"
