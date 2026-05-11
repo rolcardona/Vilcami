@@ -2,7 +2,6 @@ import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 import { alertRules } from "./alert-rules";
 import { alerts } from "./alerts";
 import { organizationMembers } from "./organization-members";
-import { alerts } from "./alerts";
 
 export const alertLifecycleStatusEnum = text("status", {
   enum: ["active", "acknowledged", "returned_to_normal", "shelved", "suppressed", "out_of_service"],
@@ -15,7 +14,6 @@ export const alertLifecycle = sqliteTable("alert_lifecycle", {
   alertRuleId: text("alert_rule_id")
     .notNull()
     .references(() => alertRules.id),
-  alertId: text("alert_id").references(() => alerts.id),
   status: alertLifecycleStatusEnum.notNull(),
   triggeredAt: integer("triggered_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
   acknowledgedAt: integer("acknowledged_at", { mode: "timestamp" }),

@@ -196,8 +196,8 @@ describe("evaluateRules", () => {
     // Cast to bypass TypeScript — simulates an unknown ruleType at runtime
     const malformedRule = {
       ...createAlertRule({ id: "rule-unknown" }),
-      ruleType: "unknown_rule_type",
-    } as AlertRule;
+      ruleType: "unknown_rule_type" as AlertRule["ruleType"],
+    };
 
     const results = await evaluateRules(
       [malformedRule],

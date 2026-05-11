@@ -11,13 +11,12 @@
  *   P3 (low)       -> email
  */
 import type {
-  AlertSeverity,
-  NotificationChannel,
+  NotificationSeverity,
   NotificationPayload,
   NotificationRecipient,
   NotificationAdapter,
 } from "../adapters/notification-adapter.interface";
-import { createNotificationAdapter, type NotificationAdapterConfigs } from "../adapters/notification-registry";
+import { createNotificationAdapter, type NotificationRegistryConfigs, type NotificationChannel } from "../adapters/notification-registry";
 
 // ---------------------------------------------------------------------------
 // DispatchResult
@@ -36,15 +35,15 @@ export interface DispatchResult {
 // Severity -> Channels mapping
 // ---------------------------------------------------------------------------
 
-const SEVERITY_CHANNEL_MAP: Record<AlertSeverity, NotificationChannel[]> = {
-  p0: ["whatsapp", "sms", "push"],
-  p1: ["whatsapp", "push"],
-  p2: ["push", "email"],
-  p3: ["email"],
+const SEVERITY_CHANNEL_MAP: Record<NotificationSeverity, NotificationChannel[]> = {
+  critical: ["whatsapp", "sms", "push"],
+  high: ["whatsapp", "push"],
+  medium: ["push", "email"],
+  low: ["email"],
 };
 
 /** Devuelve los canales de notificacion correspondientes a una severidad. */
-export function getChannelsForSeverity(severity: AlertSeverity): NotificationChannel[] {
+export function getChannelsForSeverity(severity: NotificationSeverity): NotificationChannel[] {
   return SEVERITY_CHANNEL_MAP[severity];
 }
 
@@ -62,7 +61,7 @@ export async function dispatchNotifications(
   alertPayload: NotificationPayload,
   _alertRule: unknown,
   recipients: NotificationRecipient[],
-  adapterConfigs: NotificationAdapterConfigs,
+  adapterConfigs: NotificationRegistryConfigs,
 ): Promise<DispatchResult> {
   const channels = getChannelsForSeverity(alertPayload.severity);
   const escalationStartedAt = Date.now();
@@ -90,7 +89,7 @@ export async function dispatchNotifications(
     }
 
     // Verificar si el adaptador esta configurado
-    if (!adapter.isConfigured()) {
+    if (!adapter.validateConfig()) {
       channelsFailed.push(channel);
       continue;
     }
@@ -100,7 +99,7 @@ export async function dispatchNotifications(
     for (const recipient of recipients) {
       try {
         const sendResult = await adapter.send(alertPayload, recipient);
-        if (sendResult.success) {
+        if (sendResult) {
           channelHadSuccess = true;
           recipientResults.set(recipient.memberId, true);
         }
