@@ -1,5 +1,6 @@
 import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 import { alertRules } from "./alert-rules";
+import { alerts } from "./alerts";
 import { organizationMembers } from "./organization-members";
 
 export const alertLifecycleStatusEnum = text("status", {
@@ -9,6 +10,7 @@ export const alertLifecycleStatusEnum = text("status", {
 export const alertLifecycle = sqliteTable("alert_lifecycle", {
   id: text("id").primaryKey(),
   organizationId: text("organization_id").notNull(),
+  alertId: text("alert_id").references(() => alerts.id),
   alertRuleId: text("alert_rule_id")
     .notNull()
     .references(() => alertRules.id),

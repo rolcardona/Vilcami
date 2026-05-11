@@ -7,7 +7,7 @@ export const alertSeverityEnum = text("severity", {
 });
 
 export const alertConditionOperatorEnum = text("condition_operator", {
-  enum: ["gt", "lt", "gte", "lte", "eq", "between"],
+  enum: ["gt", "lt", "gte", "lte", "eq", "between", "streak_gte", "stddev_gt", "diff_lt"],
 });
 
 export const alertRules = sqliteTable("alert_rules", {
