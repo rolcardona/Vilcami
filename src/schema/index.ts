@@ -6,6 +6,9 @@ export { alertRules, alertSeverityEnum, alertConditionOperatorEnum } from "./ale
 export { alertLifecycle, alertLifecycleStatusEnum } from "./alert-lifecycle";
 export { alertEscalations } from "./alert-escalations";
 export { alertAuditLog, alertAuditActionEnum } from "./alert-audit-log";
+export { alerts, alertRuleTypeEnum } from "./alerts";
+export { pushSubscriptions } from "./push-subscriptions";
+export { memberProfiles, preferredChannelEnum } from "./member-profiles";
 export { subscriptionPlans, subscriptionPlanNameEnum } from "./subscription-plans";
 export { deviceSubscriptions, deviceSubscriptionStatusEnum } from "./device-subscriptions";
 export { billingEvents, billingEventTypeEnum } from "./billing-events";

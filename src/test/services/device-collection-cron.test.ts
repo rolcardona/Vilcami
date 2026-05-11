@@ -33,7 +33,7 @@ function buildTelemetryReading(overrides?: Partial<DeviceTelemetry>): DeviceTele
 }
 
 function buildTestEnv(): Env {
-  return { DB: {} as D1Database, TELEMETRY_RAW: {} as KVNamespace, SECRETS_VAULT: {} as KVNamespace, ENCRYPTION_KEY: "test-key", SUPABASE_URL: "https://test-project.supabase.co", SUPABASE_ANON_KEY: "test-anon-key" } as Env;
+  return { DB: {} as D1Database, TELEMETRY_RAW: {} as KVNamespace, SECRETS_VAULT: {} as KVNamespace, ENCRYPTION_KEY: "test-key", SUPABASE_URL: "https://test-project.supabase.co", SUPABASE_ANON_KEY: "test-anon-key", AI: { run: vi.fn() } as unknown as Ai } as Env;
 }
 
 // ---------------------------------------------------------------------------
