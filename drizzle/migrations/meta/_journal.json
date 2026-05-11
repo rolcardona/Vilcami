@@ -8,6 +8,13 @@
       "when": 1778214140653,
       "tag": "0000_cooing_giant_girl",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1778300000000,
+      "tag": "0001_phase4_ai_monitoring",
+      "breakpoints": true
     }
   ]
 }

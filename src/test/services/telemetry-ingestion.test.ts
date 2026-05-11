@@ -28,6 +28,7 @@ function createMockEnv() {
       ENCRYPTION_KEY: "test-encryption-key",
       SUPABASE_URL: "https://test-project.supabase.co",
       SUPABASE_ANON_KEY: "test-anon-key",
+      AI: { run: vi.fn() } as unknown as Ai,
     },
     putFn,
   };

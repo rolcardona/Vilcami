@@ -21,3 +21,7 @@ id = "PLACEHOLDER_WILL_BE_CREATED"
 [[kv_namespaces]]
 binding = "SECRETS_VAULT"
 id = "PLACEHOLDER_WILL_BE_CREATED"
+
+# Workers AI binding (Phase 4)
+[ai]
+binding = "AI"

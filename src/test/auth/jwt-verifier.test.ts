@@ -37,6 +37,7 @@ function createTestEnv(publicKeyJwk: JsonWebKey): Env {
     ENCRYPTION_KEY: "test",
     SUPABASE_URL: "https://test-project.supabase.co",
     SUPABASE_ANON_KEY: "test",
+    AI: { run: vi.fn() } as unknown as Ai,
   };
 }
 
