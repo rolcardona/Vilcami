@@ -98,13 +98,13 @@ describe("PushNotificationAdapter", () => {
     expect(calledUrl).toBe("https://fcm.googleapis.com/fcm/send/abc123");
   });
 
-  it("should include Content-Encoding header", async () => {
+  it("should send JSON content type for development mode", async () => {
     mockFetch.mockResolvedValueOnce({ ok: true, status: 201 });
     const adapter = new PushNotificationAdapter(VALID_VAPID_CONFIG);
     await adapter.send(samplePayload, pushRecipient);
     const options = mockFetch.mock.calls[0][1] as Record<string, unknown>;
     const headers = options.headers as Record<string, string>;
-    expect(headers["Content-Encoding"]).toBe("aes128gcm");
+    expect(headers["Content-Type"]).toBe("application/json");
   });
 
   it("should include TTL header", async () => {

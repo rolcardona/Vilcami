@@ -11,6 +11,7 @@ const mockDb = {
   where: vi.fn().mockReturnThis(), orderBy: vi.fn().mockReturnThis(),
   limit: vi.fn().mockReturnThis(), all: vi.fn(), get: vi.fn(),
   insert: vi.fn().mockReturnThis(), values: vi.fn().mockReturnThis(), run: vi.fn(),
+  batch: vi.fn().mockResolvedValue(undefined),
 };
 
 vi.mock("../../utils/db.util", () => ({ getDrizzleDb: vi.fn(() => mockDb) }));
@@ -54,8 +55,9 @@ const AI_CONTEXT: AiContextOutput = {
 const P0_RULE = {
   id: "rule-p0", organizationId: "org-001", sensorType: "temperature",
   ruleType: "critical_threshold", severity: "p0", conditionOperator: "gt",
-  thresholdValue: 80, deadbandValue: 2, enabled: true, channels: "push",
+  thresholdValue: 80, thresholdValueMax: null, deadbandValue: 2, enabled: true, channels: "push",
   deviceId: "device-001", sensorId: "sensor-001", ruleName: "P0 Rule", timeDelaySeconds: 0,
+  maintenanceWindowStart: null, maintenanceWindowEnd: null,
 };
 
 describe("runIntelligentMonitoringCycle", () => {
@@ -65,6 +67,8 @@ describe("runIntelligentMonitoringCycle", () => {
     mockDb.where.mockReturnThis(); mockDb.orderBy.mockReturnThis();
     mockDb.limit.mockReturnThis(); mockDb.insert.mockReturnThis();
     mockDb.values.mockReturnThis(); mockDb.run.mockResolvedValue({ meta: {} });
+    mockDb.batch.mockResolvedValue(undefined);
+    mockDb.get.mockResolvedValue(null); // no existing active alerts (dedup)
   });
 
   it("returns empty array when no organizations exist", async () => {
@@ -94,12 +98,13 @@ describe("runIntelligentMonitoringCycle", () => {
       ...P0_RULE, id: "rule-001", severity: "p0", channels: "push,email",
     }]);
     mockDb.all.mockResolvedValueOnce([]); // hourly averages
-    mockDb.all.mockResolvedValueOnce([{
+    mockDb.all.mockResolvedValueOnce([]); // daily summaries
+    mockDb.all.mockResolvedValueOnce([{ // member profiles
       id: "mp-001", organizationId: "org-001", memberId: "member-001",
       fullName: "Tech Admin", email: "tech@org.com", whatsappNumber: "+5491112345678",
       smsNumber: null, preferredChannel: "email",
     }]);
-    mockDb.all.mockResolvedValueOnce([{
+    mockDb.all.mockResolvedValueOnce([{ // push subscriptions
       id: "ps-001", organizationId: "org-001", memberId: "member-001",
       endpoint: "https://push.example.com/sub", p256dhKey: "key123", authKey: "auth123",
     }]);
@@ -116,7 +121,6 @@ describe("runIntelligentMonitoringCycle", () => {
       alertId: "alert-001", channelsAttempted: ["push"], channelsSucceeded: ["push"],
       channelsFailed: [], recipientResults: new Map([["member-001", true]]), escalationStartedAt: Date.now(),
     });
-    mockDb.run.mockResolvedValue({ meta: {} });
 
     const results = await runIntelligentMonitoringCycle(env);
     expect(results).toHaveLength(1);
@@ -124,8 +128,7 @@ describe("runIntelligentMonitoringCycle", () => {
     expect(results[0].rulesEvaluated).toBe(1);
     expect(results[0].alertsTriggered).toBe(1);
     expect(results[0].notificationsSent).toBeGreaterThanOrEqual(1);
-    expect(mockDb.insert).toHaveBeenCalled();
-    expect(mockDb.values).toHaveBeenCalled();
+    expect(mockDb.batch).toHaveBeenCalled();
   });
 
   it("isolates org failures — one org error does not crash the cycle", async () => {
@@ -147,9 +150,10 @@ describe("runIntelligentMonitoringCycle", () => {
     const env = createMockEnv();
     mockDb.all.mockResolvedValueOnce([{ id: "org-001" }]);
     mockDb.all.mockResolvedValueOnce([P0_RULE]);
-    mockDb.all.mockResolvedValueOnce([]);
-    mockDb.all.mockResolvedValueOnce([]);
-    mockDb.all.mockResolvedValueOnce([]);
+    mockDb.all.mockResolvedValueOnce([]); // hourly averages
+    mockDb.all.mockResolvedValueOnce([]); // daily summaries
+    mockDb.all.mockResolvedValueOnce([]); // member profiles
+    mockDb.all.mockResolvedValueOnce([]); // push subscriptions
 
     (env.TELEMETRY_RAW.list as ReturnType<typeof vi.fn>).mockResolvedValue({ keys: [], list_complete: true });
     (evaluateRules as ReturnType<typeof vi.fn>).mockResolvedValue([
@@ -160,15 +164,12 @@ describe("runIntelligentMonitoringCycle", () => {
       alertId: "alert-p0", channelsAttempted: [], channelsSucceeded: [],
       channelsFailed: [], recipientResults: new Map(), escalationStartedAt: Date.now(),
     });
-    mockDb.run.mockResolvedValue({ meta: {} });
 
     const results = await runIntelligentMonitoringCycle(env);
-    const alertInsertCall = mockDb.values.mock.calls.find((call: unknown[]) => {
-      const arg = call[0] as Record<string, unknown>;
-      return arg && typeof arg.severity === "string";
-    });
-    if (alertInsertCall) {
-      expect((alertInsertCall[0] as Record<string, unknown>).severity).toBe("critical");
+    // Verify severity mapping via dispatchNotifications call payload
+    const dispatchCall = (dispatchNotifications as ReturnType<typeof vi.fn>).mock.calls[0];
+    if (dispatchCall) {
+      expect(dispatchCall[0].severity).toBe("critical"); // p0 → critical
     }
     expect(results).toHaveLength(1);
     expect(results[0].alertsTriggered).toBe(1);

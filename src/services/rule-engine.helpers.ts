@@ -143,9 +143,10 @@ export function isWithinMaintenanceWindow(rule: AlertRule, timestampMs: number):
 
 export function filterReadingsByTimeDelay(
   readings: TelemetryReading[], delayMilliseconds: number,
+  evaluationTimestampMs?: number,
 ): TelemetryReading[] {
   if (readings.length === 0) return [];
-  const cutoffTimestamp = Date.now() - delayMilliseconds;
+  const cutoffTimestamp = (evaluationTimestampMs ?? Date.now()) - delayMilliseconds;
   return readings.filter((reading) => reading.timestamp <= cutoffTimestamp);
 }
 

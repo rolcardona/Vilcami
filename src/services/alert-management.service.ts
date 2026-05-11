@@ -26,11 +26,12 @@ async function findAlert(env: Env, alertId: string, orgFilter: string | null): P
   return row ?? null;
 }
 
-/** Re-fetch alert after update */
-async function refetchAlert(env: Env, alertId: string): Promise<AlertRow> {
+/** Re-fetch alert after update (org-scoped for multi-tenant safety) */
+async function refetchAlert(env: Env, alertId: string, orgFilter: string | null): Promise<AlertRow> {
   const row = await getDrizzleDb(env).select().from(alerts)
-    .where(eq(alerts.id, alertId)).get();
-  return row!;
+    .where(alertOrgWhere(alertId, orgFilter)).get();
+  if (!row) throw new Error(`Alert ${alertId} not found after update`);
+  return row;
 }
 
 // ---------------------------------------------------------------------------
@@ -90,7 +91,7 @@ export async function acknowledgeAlert(
     status: "acknowledged", acknowledgedAt: new Date(), acknowledgedBy: userId,
   }).where(and(eq(alertLifecycle.alertId, existing.id), eq(alertLifecycle.status, "active"))).run();
 
-  return { success: true, alert: await refetchAlert(env, alertId) } as const;
+  return { success: true, alert: await refetchAlert(env, alertId, organizationFilter) } as const;
 }
 
 // ---------------------------------------------------------------------------
@@ -113,7 +114,7 @@ export async function resolveAlert(
     sql`${alertLifecycle.status} IN ('active', 'acknowledged', 'shelved')`,
   )).run();
 
-  return { success: true, alert: await refetchAlert(env, alertId) } as const;
+  return { success: true, alert: await refetchAlert(env, alertId, organizationFilter) } as const;
 }
 
 // ---------------------------------------------------------------------------
@@ -134,7 +135,7 @@ export async function shelveAlert(
     sql`${alertLifecycle.status} IN ('active', 'acknowledged')`,
   )).run();
 
-  return { success: true, alert: await refetchAlert(env, alertId) } as const;
+  return { success: true, alert: await refetchAlert(env, alertId, organizationFilter) } as const;
 }
 
 // ---------------------------------------------------------------------------

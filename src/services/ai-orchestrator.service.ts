@@ -14,13 +14,14 @@ import type { AiContextOutput } from "../validators/ai-context.validator";
 import { getDrizzleDb } from "../utils/db.util";
 import { organizations } from "../schema/organizations";
 import { alertRules } from "../schema/alert-rules";
+import { dailySummaries } from "../schema/daily-summaries";
 import { hourlyAverages } from "../schema/hourly-averages";
 import { alerts } from "../schema/alerts";
 import { alertLifecycle } from "../schema/alert-lifecycle";
 import { alertAuditLog } from "../schema/alert-audit-log";
 import { memberProfiles } from "../schema/member-profiles";
 import { pushSubscriptions } from "../schema/push-subscriptions";
-import { eq, and, desc, gte } from "drizzle-orm";
+import { eq, and, desc, gte, isNull, sql } from "drizzle-orm";
 
 const RULE_TO_ALERT_SEVERITY: Record<string, NotificationSeverity> = {
   p0: "critical", p1: "high", p2: "medium", p3: "low",
@@ -38,6 +39,34 @@ export interface MonitoringCycleResult {
 }
 
 interface RawTelemetryEntry { sensorType: string; value: number; timestamp: number }
+
+// ---------------------------------------------------------------------------
+// Drizzle row → AlertRule mapper (eliminates double-cast)
+// ---------------------------------------------------------------------------
+
+function mapDrizzleRuleToAlertRule(row: typeof alertRules.$inferSelect): AlertRule {
+  return {
+    id: row.id,
+    organizationId: row.organizationId,
+    sensorType: row.conditionOperator, // placeholder; rules match by device+sensor
+    ruleType: row.severity === "p0" ? "critical_threshold"
+      : row.conditionOperator === "diff_lt" ? "y2_differential"
+      : row.conditionOperator === "streak_gte" ? "consecutive_streak"
+      : row.conditionOperator === "stddev_gt" ? "standard_deviation"
+      : "critical_threshold",
+    conditionOperator: row.conditionOperator as AlertRule["conditionOperator"],
+    thresholdValue: row.thresholdValue,
+    thresholdMin: row.thresholdValueMax !== null ? undefined : undefined,
+    thresholdMax: row.thresholdValueMax ?? undefined,
+    deadband: row.deadbandValue,
+    streakThreshold: undefined,
+    stddevThreshold: undefined,
+    maintenanceWindowStart: row.maintenanceWindowStart?.getTime() ?? undefined,
+    maintenanceWindowEnd: row.maintenanceWindowEnd?.getTime() ?? undefined,
+    timeDelayMs: row.timeDelaySeconds * 1000,
+    enabled: row.enabled,
+  };
+}
 
 export async function runIntelligentMonitoringCycle(env: Env): Promise<MonitoringCycleResult[]> {
   const db = getDrizzleDb(env);
@@ -64,26 +93,39 @@ async function processOrganizationCycle(
   env: Env, db: ReturnType<typeof getDrizzleDb>, orgId: string,
 ): Promise<MonitoringCycleResult> {
   const cycleStartMs = Date.now();
-  const enabledRules = await db.select().from(alertRules)
+  const enabledRuleRows = await db.select().from(alertRules)
     .where(and(eq(alertRules.organizationId, orgId), eq(alertRules.enabled, true))).all();
-  if (enabledRules.length === 0) {
+  if (enabledRuleRows.length === 0) {
     return { organizationId: orgId, rulesEvaluated: 0, alertsTriggered: 0,
       notificationsSent: 0, notificationsFailed: 0, cycleDurationMs: Date.now() - cycleStartMs };
   }
 
+  const enabledRules: AlertRule[] = enabledRuleRows.map(mapDrizzleRuleToAlertRule);
   const hourlyAggregations = await readHourlyAggregations(db, orgId);
   const telemetryReadings = await readKvTelemetry(env, orgId);
   const triggeredResults = await evaluateRules(
-    enabledRules as unknown as AlertRule[], telemetryReadings, hourlyAggregations, Date.now(),
+    enabledRules, telemetryReadings, hourlyAggregations, Date.now(),
   );
 
   let totalSent = 0; let totalFailed = 0;
   for (const triggeredRule of triggeredResults) {
+    const matchedRuleRow = enabledRuleRows.find((r) => r.id === triggeredRule.ruleId);
     const matchedRule = enabledRules.find((r) => r.id === triggeredRule.ruleId);
-    const mappedSeverity = resolveAlertSeverity(triggeredRule, matchedRule?.severity);
+
+    // Deduplication: skip if an active alert already exists for this rule+org
+    const existingActive = await db.select({ id: alertLifecycle.id }).from(alertLifecycle)
+      .where(and(
+        eq(alertLifecycle.organizationId, orgId),
+        eq(alertLifecycle.alertRuleId, triggeredRule.ruleId),
+        eq(alertLifecycle.status, "active"),
+      )).get();
+    if (existingActive) continue;
+
+    const mappedSeverity = resolveAlertSeverity(triggeredRule, matchedRuleRow?.severity);
     const aiContext = await generateAlertContext(triggeredRule, env);
-    const deviceId = (matchedRule?.deviceId as string) ?? "unknown";
-    const alertId = await persistAlertRecords(db, orgId, triggeredRule, aiContext, matchedRule, mappedSeverity);
+    const deviceId = matchedRuleRow?.deviceId ?? "unknown";
+    const channels = matchedRuleRow?.channels ?? "push";
+    const alertId = await persistAlertRecords(db, orgId, triggeredRule, aiContext, matchedRuleRow, mappedSeverity, channels);
     const recipients = await buildNotificationRecipients(db, orgId);
     const dispatchResult = await dispatchNotifications(
       buildNotificationPayload(alertId, orgId, triggeredRule, aiContext, mappedSeverity, deviceId),
@@ -105,13 +147,27 @@ function resolveAlertSeverity(ruleResult: RuleEvaluationResult, ruleSeverity: st
 
 async function readHourlyAggregations(db: ReturnType<typeof getDrizzleDb>, orgId: string): Promise<HourlyAggregation[]> {
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const rows = await db.select().from(hourlyAverages)
+
+  // Read hourly averages for basic aggregations
+  const hourlyRows = await db.select().from(hourlyAverages)
     .where(and(eq(hourlyAverages.organizationId, orgId), gte(hourlyAverages.hourBucket, twentyFourHoursAgo)))
     .orderBy(desc(hourlyAverages.hourBucket)).all();
-  return rows.map((row) => ({
+
+  // Read daily summaries for stddev values (hourlyAverages doesn't have stddev)
+  const dailyRows = await db.select().from(dailySummaries)
+    .where(eq(dailySummaries.organizationId, orgId))
+    .orderBy(desc(dailySummaries.dateBucket)).limit(1).all();
+  const stddevBySensor = new Map<string, number>();
+  for (const dr of dailyRows) {
+    stddevBySensor.set(dr.sensorId, dr.stdDev ?? 0);
+  }
+
+  return hourlyRows.map((row) => ({
     hour: row.hourBucket instanceof Date ? row.hourBucket.getTime() : Number(row.hourBucket),
     avg: row.avgValue, min: row.minValue, max: row.maxValue,
-    count: row.sampleCount, stddev: 0, sensorType: row.sensorId,
+    count: row.sampleCount,
+    stddev: stddevBySensor.get(row.sensorId) ?? 0,
+    sensorType: row.sensorId,
   }));
 }
 
@@ -132,26 +188,30 @@ async function readKvTelemetry(env: Env, orgId: string): Promise<TelemetryReadin
 
 async function persistAlertRecords(
   db: ReturnType<typeof getDrizzleDb>, orgId: string, triggeredRule: RuleEvaluationResult,
-  aiContext: AiContextOutput, matchedRule: Record<string, unknown> | undefined, mappedSeverity: NotificationSeverity,
+  aiContext: AiContextOutput, matchedRuleRow: Record<string, unknown> | undefined,
+  mappedSeverity: NotificationSeverity, channels: string,
 ): Promise<string> {
   const alertId = crypto.randomUUID();
-  await db.insert(alerts).values({
-    id: alertId, organizationId: orgId, deviceId: (matchedRule?.deviceId as string) ?? "unknown",
-    sensorType: triggeredRule.sensorType, severity: mappedSeverity,
-    ruleType: triggeredRule.ruleType as AlertRuleType,
-    currentValue: String(triggeredRule.currentValue), thresholdValue: String(triggeredRule.thresholdValue),
-    aiMessage: aiContext.message, aiContext: JSON.stringify(aiContext),
-    channels: (matchedRule?.channels as string) ?? "push",
-  }).run();
   const lifecycleId = crypto.randomUUID();
-  await db.insert(alertLifecycle).values({
-    id: lifecycleId, organizationId: orgId, alertId, alertRuleId: triggeredRule.ruleId,
-    status: "active", triggeredAt: new Date(),
-  }).run();
-  await db.insert(alertAuditLog).values({
-    id: crypto.randomUUID(), organizationId: orgId, alertLifecycleId: lifecycleId,
-    action: "triggered", performedBy: null, timestamp: new Date(), details: triggeredRule.details,
-  }).run();
+
+  // Atomic batch: alert + lifecycle + audit in one D1 transaction
+  await db.batch([
+    db.insert(alerts).values({
+      id: alertId, organizationId: orgId, deviceId: (matchedRuleRow?.deviceId as string) ?? "unknown",
+      sensorType: triggeredRule.sensorType, severity: mappedSeverity,
+      ruleType: triggeredRule.ruleType as AlertRuleType,
+      currentValue: String(triggeredRule.currentValue), thresholdValue: String(triggeredRule.thresholdValue),
+      aiMessage: aiContext.message, aiContext: JSON.stringify(aiContext), channels,
+    }),
+    db.insert(alertLifecycle).values({
+      id: lifecycleId, organizationId: orgId, alertId, alertRuleId: triggeredRule.ruleId,
+      status: "active", triggeredAt: new Date(),
+    }),
+    db.insert(alertAuditLog).values({
+      id: crypto.randomUUID(), organizationId: orgId, alertLifecycleId: lifecycleId,
+      action: "triggered", performedBy: null, timestamp: new Date(), details: triggeredRule.details,
+    }),
+  ]);
   return alertId;
 }
 

@@ -39,7 +39,7 @@ export async function evaluateRules(
     if (isWithinMaintenanceWindow(rule, nowMs)) continue;
 
     // 2. Apply time delay filter to readings
-    const filteredReadings = applyTimeDelayFilter(readings, rule);
+    const filteredReadings = applyTimeDelayFilter(readings, rule, nowMs);
 
     // 3. Route to the correct evaluator based on ruleType
     const result = routeToEvaluator(rule, filteredReadings, hourlyAggregations);
@@ -85,9 +85,10 @@ function routeToEvaluator(
 function applyTimeDelayFilter(
   readings: TelemetryReading[],
   rule: AlertRule,
+  evaluationTimestampMs: number,
 ): TelemetryReading[] {
   if (rule.timeDelayMs !== undefined && rule.timeDelayMs > 0) {
-    return filterReadingsByTimeDelay(readings, rule.timeDelayMs);
+    return filterReadingsByTimeDelay(readings, rule.timeDelayMs, evaluationTimestampMs);
   }
   return readings;
 }

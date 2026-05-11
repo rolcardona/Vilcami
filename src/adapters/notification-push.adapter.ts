@@ -7,8 +7,8 @@
  *
  * NOTE: Full RFC 8291 message encryption (ECDH key agreement + AES-128-GCM)
  * is required by production push services. This adapter sends the notification
- * payload as-is for development/testing. Production deployment MUST add
- * encryption via a dedicated utility or library.
+ * payload as JSON for development/testing. Production deployment MUST add
+ * RFC 8291 encryption before sending to real push services.
  */
 import type {
   NotificationAdapter,
@@ -60,8 +60,7 @@ export class PushNotificationAdapter implements NotificationAdapter {
       const response = await fetch(subscription.endpoint, {
         method: "POST",
         headers: {
-          "Content-Type": "application/octet-stream",
-          "Content-Encoding": "aes128gcm",
+          "Content-Type": "application/json",
           TTL: "86400",
         },
         body: JSON.stringify(notificationPayload),

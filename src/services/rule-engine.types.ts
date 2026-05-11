@@ -12,7 +12,9 @@ export interface AlertRule {
     | "y2_differential"
     | "consecutive_streak"
     | "standard_deviation";
-  conditionOperator: string;
+  conditionOperator:
+    | "gt" | "lt" | "gte" | "lte" | "eq" | "between"
+    | "streak_gte" | "stddev_gt" | "diff_lt";
   thresholdValue: number;
   thresholdMin?: number;
   thresholdMax?: number;
@@ -28,7 +30,7 @@ export interface AlertRule {
 export interface RuleEvaluationResult {
   ruleId: string;
   sensorType: string;
-  ruleType: string;
+  ruleType: "critical_threshold" | "y2_differential" | "consecutive_streak" | "standard_deviation";
   triggered: boolean;
   currentValue: number;
   thresholdValue: number;

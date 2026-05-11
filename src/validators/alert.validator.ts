@@ -23,12 +23,12 @@ export const alertRuleValidator = z.object({
   sensorId: z.string().optional(),
   ruleName: z.string().min(1).max(200),
   severity: z.enum(alertSeverityValues),
-  conditionOperator: z.enum(["gt", "lt", "gte", "lte", "eq", "between"]),
+  conditionOperator: z.enum(["gt", "lt", "gte", "lte", "eq", "between", "streak_gte", "stddev_gt", "diff_lt"]),
   thresholdValue: z.number(),
   thresholdValueMax: z.number().optional(),
   deadbandValue: z.number().default(2.0),
   timeDelaySeconds: z.number().int().min(0).default(0),
-  channels: z.array(z.enum(["whatsapp", "push", "sms"])).min(1),
+  channels: z.array(z.enum(["whatsapp", "push", "sms", "email"])).min(1),
   enabled: z.boolean().default(true),
 }).refine(
   (data) => {
