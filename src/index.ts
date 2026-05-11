@@ -8,6 +8,7 @@ import {
   computeDailySummaries,
 } from "./services/aggregation-cron.service";
 import type { TelemetryEntry } from "./services/aggregation-cron.service";
+import { runIntelligentMonitoringCycle } from "./services/ai-orchestrator.service";
 import { getDrizzleDb } from "./utils/db.util";
 import { hourlyAverages } from "./schema/hourly-averages";
 import { dailySummaries } from "./schema/daily-summaries";
@@ -114,5 +115,6 @@ export default {
   fetch: app.fetch,
   scheduled: async (event: ScheduledEvent, env: Env, ctx: ExecutionContext) => {
     ctx.waitUntil(runHourlyAggregation(env));
+    ctx.waitUntil(runIntelligentMonitoringCycle(env));
   },
 };
