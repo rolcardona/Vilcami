@@ -20,7 +20,7 @@ describe("alert_rules schema", () => {
   });
 
   it("should have conditionOperator enum", () => {
-    expect(alertRules.conditionOperator.enumValues).toEqual(["gt", "lt", "gte", "lte", "eq", "between"]);
+    expect(alertRules.conditionOperator.enumValues).toEqual(["gt", "lt", "gte", "lte", "eq", "between", "streak_gte", "stddev_gt", "diff_lt"]);
   });
 });
 
