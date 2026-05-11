@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { Env } from "./types/env";
 import { deviceRoutes } from "./routes/devices.routes";
 import { telemetryRoutes } from "./routes/telemetry.routes";
+import { alertRoutes, pushSubscriptionRoutes } from "./routes/alerts.routes";
 import {
   computeHourlyAggregations,
   computeDailySummaries,
@@ -29,6 +30,8 @@ app.get("/health", (c) => {
 // ---------------------------------------------------------------------------
 app.route("/api/devices", deviceRoutes);
 app.route("/api/telemetry", telemetryRoutes);
+app.route("/api/alerts", alertRoutes);
+app.route("/api/push-subscriptions", pushSubscriptionRoutes);
 
 // ---------------------------------------------------------------------------
 // Cron: hourly aggregation (KV raw telemetry → D1 hourly_averages + daily_summaries)
