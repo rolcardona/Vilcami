@@ -1,9 +1,10 @@
 import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
+import { organizations } from "./organizations";
 
 export const wompiEvents = sqliteTable("wompi_events", {
   id: text("id").primaryKey(),
-  organizationId: text("organization_id").notNull(),
+  organizationId: text("organization_id").notNull().references(() => organizations.id),
   wompiEventId: text("wompi_event_id").notNull(),
   eventType: text("event_type").notNull(),
   payload: text("payload").notNull(),

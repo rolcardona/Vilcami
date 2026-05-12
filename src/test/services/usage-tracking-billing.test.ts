@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { recordBillingEvent, checkAndRecordUsage } from "../../services/usage-tracking.service";
-import { createMockKV, createMockDb, makeHourBucket, ORG_ID, DEVICE_ID } from "./usage-tracking.helpers";
+import { createMockKV, createMockDb, makeHourBucket, ORG_ID, DEVICE_ID, SUB_ID } from "./usage-tracking.helpers";
 
 // ---------------------------------------------------------------------------
 // recordBillingEvent — D1 analytics recording
@@ -22,6 +22,37 @@ describe("recordBillingEvent", () => {
     expect(event.deviceExternalId).toBe(DEVICE_ID);
     expect(event.eventType).toBe("api_call_tuya");
     expect(event.id).toBeDefined();
+  });
+
+  it("records a billing event with deviceSubscriptionId when provided", async () => {
+    const mockDb = createMockDb();
+
+    await recordBillingEvent(
+      mockDb as unknown as Parameters<typeof recordBillingEvent>[0],
+      ORG_ID,
+      DEVICE_ID,
+      "api_call_tuya",
+      { deviceSubscriptionId: SUB_ID },
+    );
+
+    expect(mockDb.insertedRows).toHaveLength(1);
+    const event = mockDb.insertedRows[0];
+    expect(event.deviceSubscriptionId).toBe(SUB_ID);
+  });
+
+  it("sets deviceSubscriptionId to null when not provided (no fabricated FK)", async () => {
+    const mockDb = createMockDb();
+
+    await recordBillingEvent(
+      mockDb as unknown as Parameters<typeof recordBillingEvent>[0],
+      ORG_ID,
+      DEVICE_ID,
+      "api_call_tuya",
+    );
+
+    expect(mockDb.insertedRows).toHaveLength(1);
+    const event = mockDb.insertedRows[0];
+    expect(event.deviceSubscriptionId).toBeNull();
   });
 
   it("records a rejected billing event with rejection reason metadata", async () => {
@@ -69,6 +100,22 @@ describe("checkAndRecordUsage", () => {
     expect(result.maxAllowed).toBe(60);
     expect(mockDb.insertedRows).toHaveLength(1);
     expect(mockDb.insertedRows[0].eventType).toBe("api_call_tuya");
+  });
+
+  it("passes deviceSubscriptionId through to billing event when provided", async () => {
+    const result = await checkAndRecordUsage(
+      kv,
+      mockDb as unknown as Parameters<typeof checkAndRecordUsage>[1],
+      ORG_ID,
+      DEVICE_ID,
+      "starter",
+      "api_call_tuya",
+      SUB_ID,
+    );
+
+    expect(result.allowed).toBe(true);
+    expect(mockDb.insertedRows).toHaveLength(1);
+    expect(mockDb.insertedRows[0].deviceSubscriptionId).toBe(SUB_ID);
   });
 
   it("rejects and records a rejected reading with quota_exceeded reason", async () => {

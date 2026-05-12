@@ -87,6 +87,14 @@ async function processOrganizationBilling(
   let warningSent = false;
 
   const subscription = await getSubscriptionStatus(db, organizationId);
+  if (!subscription) {
+    return {
+      organizationId,
+      status: "trial" as SubscriptionStatus,
+      warningSent: false,
+      cycleDurationMs: Date.now() - cycleStartMs,
+    };
+  }
   const { status, currentPeriodEnd } = subscription;
 
   let transitionResult: { status: SubscriptionStatus } | undefined;

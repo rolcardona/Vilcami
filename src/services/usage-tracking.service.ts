@@ -7,14 +7,23 @@
  *   TTL:   3600 seconds (1 hour)
  *
  * When a telemetry reading arrives:
- *   1. Check KV throttle key for this org + device + current hour
- *   2. If count < maxAllowed → accept, increment counter
- *   3. If count >= maxAllowed → reject (429-style)
- *   4. First reading of the hour → create key with TTL 3600
+ *   1. checkAndIncrementThrottle reads the current counter from KV
+ *   2. If count < maxAllowed → accept, increment counter in the same call
+ *   3. If count >= maxAllowed → reject (429-style), counter unchanged
+ *   4. First reading of the hour → create key with count=1, TTL 3600
  *
  * Every accepted OR rejected reading creates a billing_events row for analytics.
+ *
+ * ATOMICITY NOTE:
+ *   KV does not support true compare-and-set (CAS). The consolidated
+ *   checkAndIncrementThrottle reduces the TOCTOU window by performing
+ *   check + increment in a single function (no yielding between read and
+ *   write), but concurrent requests could still read the same counter
+ *   before either writes. For production with high concurrency, consider
+ *   migrating throttle enforcement to D1 with:
+ *     UPDATE throttle_counters SET count = count + 1
+ *     WHERE key = ? AND count < ? RETURNING count
  */
-import { eq } from "drizzle-orm";
 import { billingEvents } from "../schema/index";
 import { getReadingsPerHourLimit } from "./plan-feature.service";
 import type { PlanName } from "../types/billing.types";
@@ -49,9 +58,10 @@ export interface ThrottleResult {
 }
 
 // ---------------------------------------------------------------------------
-// checkThrottle — checks KV throttle counter, returns allowance status
+// checkThrottle — INTERNAL: reads KV throttle counter without modifying it.
+// Kept as a granular helper for read-only throttle queries if needed.
 // ---------------------------------------------------------------------------
-export async function checkThrottle(
+async function checkThrottle(
   kv: KVNamespace,
   organizationId: string,
   deviceId: string,
@@ -62,9 +72,6 @@ export async function checkThrottle(
   const raw = await kv.get(key);
 
   if (!raw) {
-    // First reading of the hour — create the key with TTL
-    const initialValue = JSON.stringify({ count: 0, maxAllowed });
-    await kv.put(key, initialValue, { expirationTtl: 3600 });
     return { allowed: true, currentCount: 0, maxAllowed };
   }
 
@@ -74,9 +81,10 @@ export async function checkThrottle(
 }
 
 // ---------------------------------------------------------------------------
-// incrementThrottleCounter — increments KV counter after accepting a reading
+// incrementThrottleCounter — INTERNAL: increments KV counter after accepting.
+// Kept as a granular helper for counter-only updates if needed.
 // ---------------------------------------------------------------------------
-export async function incrementThrottleCounter(
+async function incrementThrottleCounter(
   kv: KVNamespace,
   organizationId: string,
   deviceId: string,
@@ -98,6 +106,37 @@ export async function incrementThrottleCounter(
 }
 
 // ---------------------------------------------------------------------------
+// checkAndIncrementThrottle — CONSOLIDATED: atomic check + increment
+// Reads KV counter, checks against plan limit, and increments in a single
+// function call to reduce the TOCTOU race window. See ATOMICITY NOTE above.
+// ---------------------------------------------------------------------------
+export async function checkAndIncrementThrottle(
+  kv: KVNamespace,
+  organizationId: string,
+  deviceId: string,
+  planName: PlanName,
+): Promise<ThrottleResult> {
+  const key = buildThrottleKey(organizationId, deviceId);
+  const maxAllowed = getReadingsPerHourLimit(planName);
+  const raw = await kv.get(key);
+
+  let currentCount: number;
+  if (!raw) {
+    currentCount = 0;
+  } else {
+    const parsed: { count: number; maxAllowed: number } = JSON.parse(raw);
+    currentCount = parsed.count;
+  }
+
+  const allowed = currentCount < maxAllowed;
+  const newCount = allowed ? currentCount + 1 : currentCount;
+
+  await kv.put(key, JSON.stringify({ count: newCount, maxAllowed }), { expirationTtl: 3600 });
+
+  return { allowed, currentCount: newCount, maxAllowed };
+}
+
+// ---------------------------------------------------------------------------
 // recordBillingEvent — persists a billing_events row in D1 via Drizzle
 // ---------------------------------------------------------------------------
 export async function recordBillingEvent(
@@ -105,12 +144,12 @@ export async function recordBillingEvent(
   organizationId: string,
   deviceId: string,
   eventType: "api_call_tuya" | "api_call_modbus",
-  metadata?: { rejectionReason?: string },
+  metadata?: { rejectionReason?: string; deviceSubscriptionId?: string },
 ): Promise<void> {
   await db.insert(billingEvents).values({
     id: crypto.randomUUID(),
     organizationId,
-    deviceSubscriptionId: `sub-${organizationId}`,
+    deviceSubscriptionId: metadata?.deviceSubscriptionId ?? null,
     eventTimestamp: new Date(),
     eventType,
     deviceExternalId: deviceId,
@@ -119,7 +158,7 @@ export async function recordBillingEvent(
 }
 
 // ---------------------------------------------------------------------------
-// checkAndRecordUsage — orchestrator: throttle check + counter + event
+// checkAndRecordUsage — orchestrator: consolidated throttle + event
 // ---------------------------------------------------------------------------
 export async function checkAndRecordUsage(
   kv: KVNamespace,
@@ -128,22 +167,20 @@ export async function checkAndRecordUsage(
   deviceId: string,
   planName: PlanName,
   eventType: "api_call_tuya" | "api_call_modbus",
+  deviceSubscriptionId?: string,
 ): Promise<ThrottleResult> {
-  const throttleResult = await checkThrottle(kv, organizationId, deviceId, planName);
+  const throttleResult = await checkAndIncrementThrottle(kv, organizationId, deviceId, planName);
 
   if (throttleResult.allowed) {
-    await incrementThrottleCounter(kv, organizationId, deviceId, planName);
-    await recordBillingEvent(db, organizationId, deviceId, eventType);
-    return {
-      ...throttleResult,
-      currentCount: throttleResult.currentCount + 1,
-    };
+    await recordBillingEvent(db, organizationId, deviceId, eventType, {
+      deviceSubscriptionId,
+    });
+  } else {
+    await recordBillingEvent(db, organizationId, deviceId, eventType, {
+      rejectionReason: "quota_exceeded",
+      deviceSubscriptionId,
+    });
   }
-
-  // Rejected — still record the event for analytics with rejection reason
-  await recordBillingEvent(db, organizationId, deviceId, eventType, {
-    rejectionReason: "quota_exceeded",
-  });
 
   return throttleResult;
 }

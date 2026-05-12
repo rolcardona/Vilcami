@@ -13,6 +13,7 @@ import { getSubscriptionStatus } from "../services/subscription.service";
 import { PLAN_FEATURES } from "../services/plan-feature.service";
 import { getDrizzleDb } from "../utils/db.util";
 import { payments } from "../schema/payments";
+import { subscriptionPlans } from "../schema/subscription-plans";
 import { eq, sql } from "drizzle-orm";
 
 export const billingRoutes = new Hono<{ Bindings: Env }>();
@@ -41,11 +42,41 @@ billingRoutes.post("/checkout", async (c) => {
   }
 
   try {
+    // Validate planId against DB and retrieve server-side price
+    const db = getDrizzleDb(c.env);
+    const planRow = await db.select({
+      id: subscriptionPlans.id,
+      pricePerDeviceCents: subscriptionPlans.pricePerDeviceCents,
+    }).from(subscriptionPlans)
+      .where(eq(subscriptionPlans.id, parsed.data.planId))
+      .limit(1).get();
+
+    if (!planRow) {
+      return c.json({ error: "Invalid planId: plan not found" }, 400);
+    }
+
+    // Server-side amount calculation (never trust client price)
+    const amountInCents = planRow.pricePerDeviceCents * parsed.data.deviceCount;
+    const reference = `${organizationId}:${parsed.data.planId}:${Date.now()}`;
+
+    // Store checkout amount in KV for webhook verification (1-hour TTL)
+    await c.env.SECRETS_VAULT.put(
+      `checkout:${reference}`,
+      JSON.stringify({ amountInCents, planId: parsed.data.planId, orgId: organizationId }),
+      { expirationTtl: 3600 },
+    );
+
+    // Resolve per-organization Wompi public key from KV Vault, fallback to env var
+    const orgWompiPublicKey = await c.env.SECRETS_VAULT.get(
+      `${organizationId}:secret:wompi_public_key`,
+    );
+    const resolvedPublicKey = orgWompiPublicKey ?? c.env.WOMPI_PUBLIC_KEY;
+
     const paymentLinkResponse = await createPaymentLink(c.env, {
-      amountInCents: parsed.data.deviceCount * 850000,
+      amountInCents,
       currency: "COP",
-      reference: `${organizationId}:${parsed.data.planId}:${Date.now()}`,
-      publicKey: c.env.WOMPI_PUBLIC_KEY,
+      reference,
+      publicKey: resolvedPublicKey,
       redirectUrl: parsed.data.returnUrl,
     });
 
@@ -73,6 +104,9 @@ billingRoutes.get("/subscription", async (c) => {
   try {
     const db = getDrizzleDb(c.env);
     const subscription = await getSubscriptionStatus(db, organizationId);
+    if (!subscription) {
+      return c.json({ error: "No subscription found for organization" }, 402);
+    }
     return c.json(subscription);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to fetch subscription";

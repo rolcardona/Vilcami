@@ -75,3 +75,4 @@ export function makeHourBucket(date: Date): string {
 
 export const ORG_ID = "org-test-001";
 export const DEVICE_ID = "device-sensor-042";
+export const SUB_ID = "sub-real-001";

@@ -157,7 +157,7 @@ describe("requireSubscription", () => {
   });
 
   it("returns 402 with no_subscription error when no subscription found", async () => {
-    mockGetSubscriptionStatus.mockRejectedValueOnce(new Error("No subscription found for organization"));
+    mockGetSubscriptionStatus.mockResolvedValueOnce(null);
 
     const app = createAppWithMiddleware(requireSubscription());
     const res = await app.request("/test", undefined, createTestEnv());
@@ -166,6 +166,7 @@ describe("requireSubscription", () => {
     const body = await res.json() as { error: string; upgradeInfo: Record<string, unknown> };
     expect(body.error).toBe("no_subscription");
     expect(body.upgradeInfo).toBeDefined();
+    expect((body.upgradeInfo as { currentStatus: string }).currentStatus).toBe("none");
   });
 });
 
@@ -225,6 +226,18 @@ describe("requireFeature", () => {
     expect(res.status).toBe(200);
     expect(mockHasFeature).toHaveBeenCalledWith("enterprise", "compliance_reports");
   });
+
+  it("returns 403 feature_not_included when no subscription found (null)", async () => {
+    mockGetSubscriptionStatus.mockResolvedValueOnce(null);
+
+    const app = createAppWithMiddleware(requireFeature("ai_diagnostic" as FeatureName));
+    const res = await app.request("/test", undefined, createTestEnv());
+
+    expect(res.status).toBe(403);
+    const body = await res.json() as { error: string; currentPlan: string };
+    expect(body.error).toBe("feature_not_included");
+    expect(body.currentPlan).toBe("none");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -271,6 +284,31 @@ describe("requireDeviceQuota", () => {
 
   it("returns 403 when trial has 3 devices at max", async () => {
     mockGetSubscriptionStatus.mockResolvedValueOnce(makeSub({ planName: "trial", status: "trial", deviceCount: 3, maxDevices: 3 }));
+    mockGetDeviceLimit.mockReturnValueOnce(3);
+
+    const app = createAppWithMiddleware(requireDeviceQuota());
+    const res = await app.request("/test", undefined, createTestEnv());
+
+    expect(res.status).toBe(403);
+    const body = await res.json() as { error: string; currentCount: number; maxAllowed: number };
+    expect(body.error).toBe("device_quota_exceeded");
+    expect(body.currentCount).toBe(3);
+    expect(body.maxAllowed).toBe(3);
+  });
+
+  it("returns 403 device_quota_exceeded when no subscription found (null)", async () => {
+    mockGetSubscriptionStatus.mockResolvedValueOnce(null);
+
+    const app = createAppWithMiddleware(requireDeviceQuota());
+    const res = await app.request("/test", undefined, createTestEnv());
+
+    expect(res.status).toBe(403);
+    const body = await res.json() as { error: string; currentCount: number; maxAllowed: number };
+    expect(body.error).toBe("device_quota_exceeded");
+    expect(body.currentCount).toBe(0);
+    expect(body.maxAllowed).toBe(0);
+  });
+});
     mockGetDeviceLimit.mockReturnValueOnce(3);
 
     const app = createAppWithMiddleware(requireDeviceQuota());

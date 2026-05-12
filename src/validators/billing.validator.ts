@@ -26,7 +26,7 @@ export const billingEventValidator = z.object({
 // ---------------------------------------------------------------------------
 export const checkoutRequestValidator = z.object({
   planId: z.string().min(1),
-  deviceCount: z.number().int().min(1),
+  deviceCount: z.number().int().min(1).max(100),
   returnUrl: z.string().url(),
 }).strict();
 

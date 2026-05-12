@@ -8,6 +8,9 @@ import type { Env } from "../types/env";
 import type { WompiWebhookPayload } from "../types/wompi";
 import { verifyWebhookSignature, handleWebhookEvent } from "../adapters/wompi-adapter";
 
+/** Maximum age for webhook timestamps — 5 minutes to prevent replay attacks */
+const MAX_WEBHOOK_AGE_MS = 5 * 60 * 1000;
+
 export const webhookRoutes = new Hono<{ Bindings: Env }>();
 
 // ---------------------------------------------------------------------------
@@ -25,10 +28,20 @@ webhookRoutes.post("/wompi", async (c) => {
     return c.json({ error: "Missing timestamp header" }, 400);
   }
 
-  // 2. Read raw body as text for signature verification
+  // 2. Validate timestamp freshness to prevent replay attacks
+  const parsedTimestamp = Date.parse(timestamp);
+  if (Number.isNaN(parsedTimestamp)) {
+    return c.json({ error: "Webhook timestamp expired" }, 400);
+  }
+  const timestampAge = Math.abs(Date.now() - parsedTimestamp);
+  if (timestampAge > MAX_WEBHOOK_AGE_MS) {
+    return c.json({ error: "Webhook timestamp expired" }, 400);
+  }
+
+  // 3. Read raw body as text for signature verification
   const rawBody = await c.req.text();
 
-  // 3. Parse body as JSON for event processing
+  // 4. Parse body as JSON for event processing
   let payload: WompiWebhookPayload;
   try {
     payload = JSON.parse(rawBody) as WompiWebhookPayload;
@@ -36,9 +49,25 @@ webhookRoutes.post("/wompi", async (c) => {
     return c.json({ error: "Invalid JSON payload" }, 400);
   }
 
-  // 4. Verify HMAC-SHA256 signature
+  // 5. Extract organizationId from Wompi payload data BEFORE signature verification
+  // We need the orgId to look up the per-organization integrity key from KV Vault.
+  // The reference field contains "{orgId}:{planId}:{timestamp}" format
+  const reference = payload.data.transaction.reference;
+  const organizationId = extractOrganizationIdFromReference(reference);
+
+  if (!organizationId) {
+    return c.json({ error: "Cannot determine organization from payload" }, 400);
+  }
+
+  // 6. Resolve per-organization Wompi integrity key from KV Vault, fallback to env var
+  const orgIntegrityKey = await c.env.SECRETS_VAULT.get(
+    `${organizationId}:secret:wompi_event_integrity_key`,
+  );
+  const resolvedIntegrityKey = orgIntegrityKey ?? c.env.WOMPI_EVENT_INTEGRITY_KEY;
+
+  // 7. Verify HMAC-SHA256 signature using the per-org (or fallback) integrity key
   const isValid = await verifyWebhookSignature(
-    c.env.WOMPI_EVENT_INTEGRITY_KEY,
+    resolvedIntegrityKey,
     rawBody,
     timestamp,
     transactionHash,
@@ -48,16 +77,7 @@ webhookRoutes.post("/wompi", async (c) => {
     return c.json({ error: "invalid_signature" }, 400);
   }
 
-  // 5. Extract organizationId from Wompi payload data
-  // The reference field contains "{orgId}:{planId}:{timestamp}" format
-  const reference = payload.data.transaction.reference;
-  const organizationId = extractOrganizationIdFromReference(reference);
-
-  if (!organizationId) {
-    return c.json({ error: "Cannot determine organization from payload" }, 400);
-  }
-
-  // 6. Process the webhook event (idempotent)
+  // 8. Process the webhook event (idempotent)
   try {
     const result = await handleWebhookEvent(c.env, organizationId, payload);
     return c.json({ processed: result.processed });

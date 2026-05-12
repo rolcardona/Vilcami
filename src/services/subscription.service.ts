@@ -16,7 +16,7 @@ const VALID_TRANSITIONS: Record<SubscriptionStatus, Set<SubscriptionStatus>> = {
   active: new Set(["past_due"]),
   past_due: new Set(["active", "suspended"]),
   suspended: new Set(["active", "cancelled"]),
-  cancelled: new Set(),
+  cancelled: new Set(["active"]),
 };
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -50,13 +50,13 @@ async function updateSubStatus(db: DrizzleDb, organizationId: string, status: Su
 }
 
 // ---------------------------------------------------------------------------
-// getSubscriptionStatus — returns current org subscription details
+// getSubscriptionStatus — returns current org subscription details, or null
 // ---------------------------------------------------------------------------
 export async function getSubscriptionStatus(
   db: DrizzleDb, organizationId: string,
-): Promise<SubscriptionResponse> {
+): Promise<SubscriptionResponse | null> {
   const sub = await findOrgSubscription(db, organizationId);
-  if (!sub) throw new Error("No subscription found for organization");
+  if (!sub) return null;
 
   const planRow = await db.select({ name: subscriptionPlans.name })
     .from(subscriptionPlans)
@@ -66,12 +66,17 @@ export async function getSubscriptionStatus(
   const deviceCountRow = await db.select({ count: sql<number>`count(*)`.as("count") })
     .from(devices).where(eq(devices.organizationId, organizationId)).all();
 
+  // currentPeriodEnd: for trial, fall back to trialEndsAt; for paid, use currentPeriodEnd only
+  const periodEnd = sub.status === "trial"
+    ? (toDateMs(sub.currentPeriodEnd) || toDateMs(sub.trialEndsAt))
+    : toDateMs(sub.currentPeriodEnd);
+
   return {
     organizationId,
     planName,
     status: sub.status as SubscriptionStatus,
     currentPeriodStart: toDateMs(sub.currentPeriodStart) || toDateMs(sub.trialStartsAt),
-    currentPeriodEnd: toDateMs(sub.currentPeriodEnd) || toDateMs(sub.trialEndsAt),
+    currentPeriodEnd: periodEnd,
     deviceCount: deviceCountRow[0]?.count ?? 0,
     maxDevices: getDeviceLimit(planName),
   };
@@ -88,6 +93,11 @@ export async function activateSubscription(
   const periodEnd = new Date(now.getTime() + THIRTY_DAYS_MS);
 
   if (existing) {
+    const currentStatus = existing.status as SubscriptionStatus;
+    const allowed = VALID_TRANSITIONS[currentStatus];
+    if (!allowed?.has("active")) {
+      throw new Error(`Invalid subscription transition: ${currentStatus} → active`);
+    }
     await updateSubStatus(db, organizationId, "active", {
       planId, currentPeriodStart: now, currentPeriodEnd: periodEnd,
     });
@@ -121,8 +131,13 @@ export async function transitionSubscriptionStatus(
 }
 
 // ---------------------------------------------------------------------------
-// checkAndTransitionSubscription — time-based lifecycle transitions
+// checkAndTransitionSubscription — DEPRECATED: use processOrganizationBilling
 // ---------------------------------------------------------------------------
+/**
+ * @deprecated Use `processOrganizationBilling` from billing-cron.service.ts instead.
+ * This function duplicates time-based transition logic that is now canonically
+ * handled by the billing cron. Kept for backwards compatibility with existing tests.
+ */
 export async function checkAndTransitionSubscription(
   db: DrizzleDb, organizationId: string, now: number,
 ): Promise<{ status: SubscriptionStatus }> {
@@ -133,9 +148,9 @@ export async function checkAndTransitionSubscription(
   const periodEnd = toDateMs(current.currentPeriodEnd);
   const trialEnd = toDateMs(current.trialEndsAt);
 
-  if (status === "trial" && trialEnd > 0 && now > trialEnd) {
-    await updateSubStatus(db, organizationId, "active");
-    return { status: "active" };
+  if (status === "trial" && trialEnd > 0 && now > trialEnd + SEVEN_DAYS_MS) {
+    await updateSubStatus(db, organizationId, "suspended");
+    return { status: "suspended" };
   }
   if (status === "active" && periodEnd > 0 && now > periodEnd) {
     await updateSubStatus(db, organizationId, "past_due");

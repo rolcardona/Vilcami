@@ -9,7 +9,6 @@ export const billingEvents = sqliteTable("billing_events", {
   id: text("id").primaryKey(),
   organizationId: text("organization_id").notNull(),
   deviceSubscriptionId: text("device_subscription_id")
-    .notNull()
     .references(() => deviceSubscriptions.id),
   eventTimestamp: integer("event_timestamp", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
   eventType: billingEventTypeEnum.notNull(),

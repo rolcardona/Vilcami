@@ -388,4 +388,27 @@ describe("runBillingValidationCycle", () => {
       expect.any(Error),
     );
   });
+
+  // ---------------------------------------------------------------------------
+  // Should skip orgs with no subscription (null return) gracefully
+  // ---------------------------------------------------------------------------
+  it("should skip orgs with no subscription (null return) gracefully", async () => {
+    mockDb.all.mockResolvedValueOnce([{ id: "org-new" }, { id: "org-active" }]);
+    vi.mocked(getSubscriptionStatus)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(
+        makeSubscriptionStatus({ organizationId: "org-active", status: "active" }),
+      );
+
+    const results = await runBillingValidationCycle(env);
+
+    expect(results).toHaveLength(2);
+    expect(results[0].organizationId).toBe("org-new");
+    expect(results[0].status).toBe("trial");
+    expect(results[0].warningSent).toBe(false);
+    expect(results[1].organizationId).toBe("org-active");
+    expect(results[1].status).toBe("active");
+    // No error logged for null subscription — it's an expected case
+    expect(console.error).not.toHaveBeenCalled();
+  });
 });

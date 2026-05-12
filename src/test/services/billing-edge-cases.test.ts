@@ -117,12 +117,10 @@ describe("Subscription service edge cases", () => {
     expect(result.status).toBe("active");
   });
 
-  it("getSubscriptionStatus throws for org with no subscription row", async () => {
-    vi.mocked(getSubscriptionStatus).mockRejectedValueOnce(
-      new Error("No subscription found for organization"),
-    );
-    await expect(getSubscriptionStatus(mockDb, ORG_EC))
-      .rejects.toThrow("No subscription found");
+  it("getSubscriptionStatus returns null for org with no subscription row", async () => {
+    vi.mocked(getSubscriptionStatus).mockResolvedValueOnce(null);
+    const result = await getSubscriptionStatus(mockDb, ORG_EC);
+    expect(result).toBeNull();
   });
 });
 

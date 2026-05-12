@@ -165,11 +165,68 @@ describe("subscription.service", () => {
       expect(result.status).toBe("suspended");
     });
 
-    it("throws when no subscription found for org", async () => {
+    it("uses currentPeriodEnd directly for active subscriptions (no trialEndsAt fallback)", async () => {
+      const activeRow = makeSubscriptionRow({
+        status: "active",
+        currentPeriodStart: new Date("2024-02-01"),
+        currentPeriodEnd: new Date("2024-03-01"),
+        trialEndsAt: new Date("2024-01-31"),
+      });
+      mockDb.get.mockResolvedValueOnce(activeRow);
+      mockDb.get.mockResolvedValueOnce({ name: "Starter" });
+      mockDb.all.mockResolvedValueOnce([{ count: 2 }]);
+
+      const result = await getSubscriptionStatus(mockDb, ORG_ID);
+
+      expect(result).not.toBeNull();
+      // Must be currentPeriodEnd (March 1), NOT trialEndsAt (Jan 31)
+      expect(result!.currentPeriodEnd).toBe(new Date("2024-03-01").getTime());
+    });
+
+    it("returns currentPeriodEnd=0 for active subscription with null currentPeriodEnd", async () => {
+      const activeRow = makeSubscriptionRow({
+        status: "active",
+        currentPeriodStart: new Date("2024-02-01"),
+        currentPeriodEnd: null,
+        trialEndsAt: new Date("2024-01-31"),
+      });
+      mockDb.get.mockResolvedValueOnce(activeRow);
+      mockDb.get.mockResolvedValueOnce({ name: "Starter" });
+      mockDb.all.mockResolvedValueOnce([{ count: 2 }]);
+
+      const result = await getSubscriptionStatus(mockDb, ORG_ID);
+
+      expect(result).not.toBeNull();
+      // For non-trial, should return 0, not fall back to trialEndsAt
+      expect(result!.currentPeriodEnd).toBe(0);
+    });
+
+    it("uses trialEndsAt fallback for trial subscriptions when currentPeriodEnd is null", async () => {
+      const trialRow = makeSubscriptionRow({
+        status: "trial",
+        currentPeriodStart: null,
+        currentPeriodEnd: null,
+        trialStartsAt: new Date("2024-01-01"),
+        trialEndsAt: new Date("2024-01-31"),
+      });
+      mockDb.get.mockResolvedValueOnce(trialRow);
+      mockDb.get.mockResolvedValueOnce({ name: "Starter" });
+      mockDb.all.mockResolvedValueOnce([{ count: 1 }]);
+
+      const result = await getSubscriptionStatus(mockDb, ORG_ID);
+
+      expect(result).not.toBeNull();
+      expect(result!.status).toBe("trial");
+      // For trial, should fall back to trialEndsAt
+      expect(result!.currentPeriodEnd).toBe(new Date("2024-01-31").getTime());
+    });
+
+    it("returns null when no subscription found for org", async () => {
       mockDb.get.mockResolvedValueOnce(null);
 
-      await expect(getSubscriptionStatus(mockDb, ORG_ID))
-        .rejects.toThrow("No subscription found");
+      const result = await getSubscriptionStatus(mockDb, ORG_ID);
+
+      expect(result).toBeNull();
     });
   });
 
@@ -208,6 +265,33 @@ describe("subscription.service", () => {
 
       expect(result.status).toBe("active");
     });
+
+    it("reactivates a cancelled subscription (cancelled → active)", async () => {
+      const cancelledRow = makeSubscriptionRow({
+        status: "cancelled",
+        currentPeriodStart: new Date("2024-01-01"),
+        currentPeriodEnd: new Date("2024-02-01"),
+      });
+      mockDb.get.mockResolvedValueOnce(cancelledRow);
+      mockDb.all.mockResolvedValueOnce([cancelledRow]);
+
+      const result = await activateSubscription(mockDb, ORG_ID, PLAN_ID, PAYMENT_ID);
+
+      expect(result.status).toBe("active");
+    });
+
+    it("rejects activation of an already active subscription", async () => {
+      const activeRow = makeSubscriptionRow({
+        status: "active",
+        currentPeriodStart: new Date("2024-02-01"),
+        currentPeriodEnd: new Date("2024-03-01"),
+      });
+      mockDb.get.mockResolvedValueOnce(activeRow);
+
+      await expect(
+        activateSubscription(mockDb, ORG_ID, PLAN_ID, PAYMENT_ID),
+      ).rejects.toThrow("Invalid subscription transition: active → active");
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -222,6 +306,7 @@ describe("subscription.service", () => {
       ["past_due", "suspended"],
       ["suspended", "active"],
       ["suspended", "cancelled"],
+      ["cancelled", "active"],
     ];
 
     for (const [from, to] of validTransitions) {
@@ -248,7 +333,6 @@ describe("subscription.service", () => {
       ["trial", "cancelled"],
       ["past_due", "trial"],
       ["past_due", "cancelled"],
-      ["cancelled", "active"],
       ["cancelled", "trial"],
       ["cancelled", "past_due"],
       ["cancelled", "suspended"],
@@ -278,10 +362,10 @@ describe("subscription.service", () => {
   // checkAndTransitionSubscription — time-based transitions
   // ---------------------------------------------------------------------------
   describe("checkAndTransitionSubscription", () => {
-    it("transitions trial → active when trial period has ended", async () => {
+    it("transitions trial → suspended after 7-day grace period", async () => {
       const now = Date.now();
-      const trialStart = now - 35 * 24 * 60 * 60 * 1000; // started 35 days ago
-      const trialEnd = now - 5 * 24 * 60 * 60 * 1000; // ended 5 days ago
+      const trialStart = now - 42 * 24 * 60 * 60 * 1000; // started 42 days ago
+      const trialEnd = now - 8 * 24 * 60 * 60 * 1000; // ended 8 days ago (past grace)
       const trialRow = makeSubscriptionRow({
         status: "trial",
         trialStartsAt: new Date(trialStart),
@@ -293,7 +377,25 @@ describe("subscription.service", () => {
 
       const result = await checkAndTransitionSubscription(mockDb, ORG_ID, now);
 
-      expect(result.status).toBe("active");
+      expect(result.status).toBe("suspended");
+    });
+
+    it("keeps trial status within 7-day grace period after trial end", async () => {
+      const now = Date.now();
+      const trialStart = now - 37 * 24 * 60 * 60 * 1000;
+      const trialEnd = now - 3 * 24 * 60 * 60 * 1000; // ended 3 days ago (within grace)
+      const trialRow = makeSubscriptionRow({
+        status: "trial",
+        trialStartsAt: new Date(trialStart),
+        trialEndsAt: new Date(trialEnd),
+        currentPeriodStart: null,
+        currentPeriodEnd: null,
+      });
+      mockDb.get.mockResolvedValueOnce(trialRow);
+
+      const result = await checkAndTransitionSubscription(mockDb, ORG_ID, now);
+
+      expect(result.status).toBe("trial");
     });
 
     it("keeps trial status when trial period has NOT ended", async () => {

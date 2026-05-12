@@ -11,10 +11,8 @@ import type {
   WompiPaymentLinkResponse,
   WompiWebhookPayload,
 } from "../types/wompi";
-import type { SubscriptionStatus } from "../types/billing.types";
 import { getDrizzleDb } from "../utils/db.util";
-import { payments, wompiEvents, deviceSubscriptions } from "../schema/index";
-import { eq, sql } from "drizzle-orm";
+import { payments, wompiEvents } from "../schema/index";
 import { activateSubscription } from "../services/subscription.service";
 
 // ---------------------------------------------------------------------------
@@ -62,6 +60,8 @@ export async function verifyWebhookSignature(
 
 // ---------------------------------------------------------------------------
 // handleWebhookEvent — processes a verified Wompi webhook payload
+// Verifies amount against checkout record stored in KV before processing.
+// Uses atomic INSERT-first idempotency to prevent TOCTOU race conditions.
 // ---------------------------------------------------------------------------
 export async function handleWebhookEvent(
   env: Env,
@@ -72,28 +72,61 @@ export async function handleWebhookEvent(
   const transactionId = payload.data.transaction.id;
   const eventType = payload.event;
   const wompiEventId = `${eventType}:${transactionId}`;
+  const transaction = payload.data.transaction;
 
-  // Idempotency check — skip if event already processed
-  const existingEvent = await db.select({ id: wompiEvents.id })
-    .from(wompiEvents)
-    .where(eq(wompiEvents.wompiEventId, wompiEventId))
-    .limit(1).get();
-
-  if (existingEvent) {
-    return { processed: true };
+  // Atomic idempotency: INSERT first, catch unique constraint violation.
+  // This eliminates the TOCTOU race between SELECT and INSERT.
+  try {
+    await db.insert(wompiEvents).values({
+      id: crypto.randomUUID(),
+      organizationId,
+      wompiEventId,
+      eventType,
+      payload: JSON.stringify(payload),
+      processedAt: Math.floor(Date.now() / 1000),
+    }).run();
+  } catch (insertError: unknown) {
+    if (isUniqueConstraintViolation(insertError)) {
+      // Another concurrent request already inserted this event — idempotent return
+      return { processed: true };
+    }
+    throw insertError;
   }
 
-  // Store event for idempotency
-  await db.insert(wompiEvents).values({
-    id: crypto.randomUUID(),
-    organizationId,
-    wompiEventId,
-    eventType,
-    payload: JSON.stringify(payload),
-    processedAt: Math.floor(Date.now() / 1000),
-  }).run();
+  // Verify amount against checkout record stored in KV
+  const reference = transaction.reference;
+  const checkoutDataRaw = await env.SECRETS_VAULT.get(`checkout:${reference}`);
+  if (!checkoutDataRaw) {
+    throw new Error(`No checkout record found for reference: ${reference}. Possible tampering or expired checkout.`);
+  }
 
-  const transaction = payload.data.transaction;
+  let checkoutData: { amountInCents: number; planId: string; orgId: string };
+  try {
+    checkoutData = JSON.parse(checkoutDataRaw);
+  } catch {
+    throw new Error(`Invalid checkout data for reference: ${reference}`);
+  }
+
+  // Cross-verify amount from Wompi payload against stored checkout amount
+  if (transaction.amountInCents !== checkoutData.amountInCents) {
+    throw new Error(
+      `Amount mismatch: Wompi reports ${transaction.amountInCents} cents but checkout was ${checkoutData.amountInCents} cents. Possible price manipulation.`,
+    );
+  }
+
+  // Verify organizationId matches
+  if (organizationId !== checkoutData.orgId) {
+    throw new Error(
+      `Organization mismatch: reference belongs to ${checkoutData.orgId} but webhook targets ${organizationId}.`,
+    );
+  }
+
+  // Parse planId from reference (format: "{orgId}:{planId}:{timestamp}")
+  const referenceParts = reference.split(":");
+  const planId = referenceParts.length >= 2 ? referenceParts[1] : checkoutData.planId;
+
+  // Remove checkout record from KV after verification (one-time use)
+  await env.SECRETS_VAULT.delete(`checkout:${reference}`);
 
   if (eventType === "transaction.approved") {
     await db.insert(payments).values({
@@ -105,12 +138,13 @@ export async function handleWebhookEvent(
       status: "completed",
       paymentMethod: mapPaymentMethod(transaction.paymentMethod),
       wompiReference: transaction.reference,
+      planId,
       deviceCount: 1,
       billingPeriodStart: Math.floor(Date.now() / 1000),
       billingPeriodEnd: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
     }).run();
 
-    await activateSubscription(db, organizationId, "", transactionId);
+    await activateSubscription(db, organizationId, planId, transactionId);
   }
 
   if (eventType === "transaction.declined") {
@@ -123,6 +157,7 @@ export async function handleWebhookEvent(
       status: "failed",
       paymentMethod: mapPaymentMethod(transaction.paymentMethod),
       wompiReference: transaction.reference,
+      planId,
       deviceCount: 1,
       billingPeriodStart: Math.floor(Date.now() / 1000),
       billingPeriodEnd: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
@@ -155,4 +190,11 @@ function mapPaymentMethod(method: string): "card" | "pse" | "nequi" | null {
   if (method === "pse") return "pse";
   if (method === "nequi") return "nequi";
   return null;
+}
+
+/** Detects SQLite/D1 unique constraint violation (code 2067 or message pattern) */
+function isUniqueConstraintViolation(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const msg = error.message.toLowerCase();
+  return msg.includes("2067") || msg.includes("unique constraint failed") || msg.includes("unique constraint violation");
 }

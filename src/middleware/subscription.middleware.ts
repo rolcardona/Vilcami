@@ -27,51 +27,51 @@ export function requireSubscription() {
 
     const db = getDrizzleDb(c.env);
 
-    try {
-      const subscription = await getSubscriptionStatus(db, organizationId);
-      const status = subscription.status;
-
-      if (status === "suspended") {
-        return c.json({
-          error: "subscription_suspended",
-          upgradeInfo: {
-            plan: subscription.planName,
-            currentStatus: status,
-            message: "Your subscription is suspended. Update payment to restore access.",
-          },
-        }, 402);
-      }
-
-      if (status === "cancelled") {
-        return c.json({
-          error: "subscription_cancelled",
-          upgradeInfo: {
-            plan: subscription.planName,
-            currentStatus: status,
-            message: "Your subscription has been cancelled. Subscribe to a plan to continue.",
-          },
-        }, 401);
-      }
-
-      if (ALLOWED_STATUSES.has(status)) {
-        if (status === "past_due") {
-          c.header("X-Subscription-Past-Due", "true");
-        }
-        await next();
-        return;
-      }
-
-      // Unknown status — treat as no subscription
-      return c.json({
-        error: "no_subscription",
-        upgradeInfo: { currentStatus: status, message: "No valid subscription found." },
-      }, 402);
-    } catch {
+    const subscription = await getSubscriptionStatus(db, organizationId);
+    if (!subscription) {
       return c.json({
         error: "no_subscription",
         upgradeInfo: { currentStatus: "none", message: "No subscription found for your organization." },
       }, 402);
     }
+
+    const status = subscription.status;
+
+    if (status === "suspended") {
+      return c.json({
+        error: "subscription_suspended",
+        upgradeInfo: {
+          plan: subscription.planName,
+          currentStatus: status,
+          message: "Your subscription is suspended. Update payment to restore access.",
+        },
+      }, 402);
+    }
+
+    if (status === "cancelled") {
+      return c.json({
+        error: "subscription_cancelled",
+        upgradeInfo: {
+          plan: subscription.planName,
+          currentStatus: status,
+          message: "Your subscription has been cancelled. Subscribe to a plan to continue.",
+        },
+      }, 401);
+    }
+
+    if (ALLOWED_STATUSES.has(status)) {
+      if (status === "past_due") {
+        c.header("X-Subscription-Past-Due", "true");
+      }
+      await next();
+      return;
+    }
+
+    // Unknown status — treat as no subscription
+    return c.json({
+      error: "no_subscription",
+      upgradeInfo: { currentStatus: status, message: "No valid subscription found." },
+    }, 402);
   };
 }
 
@@ -87,22 +87,8 @@ export function requireFeature(featureName: FeatureName) {
 
     const db = getDrizzleDb(c.env);
 
-    try {
-      const subscription = await getSubscriptionStatus(db, organizationId);
-      const planName = subscription.planName as PlanName;
-
-      if (hasFeature(planName, featureName)) {
-        await next();
-        return;
-      }
-
-      return c.json({
-        error: "feature_not_included",
-        requiredPlan: getMinimumPlanForFeature(featureName),
-        currentPlan: planName,
-        upgradeUrl: "/api/billing/plans",
-      }, 403);
-    } catch {
+    const subscription = await getSubscriptionStatus(db, organizationId);
+    if (!subscription) {
       return c.json({
         error: "feature_not_included",
         requiredPlan: getMinimumPlanForFeature(featureName),
@@ -110,6 +96,20 @@ export function requireFeature(featureName: FeatureName) {
         upgradeUrl: "/api/billing/plans",
       }, 403);
     }
+
+    const planName = subscription.planName as PlanName;
+
+    if (hasFeature(planName, featureName)) {
+      await next();
+      return;
+    }
+
+    return c.json({
+      error: "feature_not_included",
+      requiredPlan: getMinimumPlanForFeature(featureName),
+      currentPlan: planName,
+      upgradeUrl: "/api/billing/plans",
+    }, 403);
   };
 }
 
@@ -125,28 +125,8 @@ export function requireDeviceQuota() {
 
     const db = getDrizzleDb(c.env);
 
-    try {
-      const subscription = await getSubscriptionStatus(db, organizationId);
-      const planName = subscription.planName as PlanName;
-      const maxAllowed = getDeviceLimit(planName);
-
-      // Enterprise has Infinity limit — always passes
-      if (maxAllowed === Infinity) {
-        await next();
-        return;
-      }
-
-      if (subscription.deviceCount >= maxAllowed) {
-        return c.json({
-          error: "device_quota_exceeded",
-          currentCount: subscription.deviceCount,
-          maxAllowed,
-          upgradeUrl: "/api/billing/plans",
-        }, 403);
-      }
-
-      await next();
-    } catch {
+    const subscription = await getSubscriptionStatus(db, organizationId);
+    if (!subscription) {
       return c.json({
         error: "device_quota_exceeded",
         currentCount: 0,
@@ -154,6 +134,26 @@ export function requireDeviceQuota() {
         upgradeUrl: "/api/billing/plans",
       }, 403);
     }
+
+    const planName = subscription.planName as PlanName;
+    const maxAllowed = getDeviceLimit(planName);
+
+    // Enterprise has Infinity limit — always passes
+    if (maxAllowed === Infinity) {
+      await next();
+      return;
+    }
+
+    if (subscription.deviceCount >= maxAllowed) {
+      return c.json({
+        error: "device_quota_exceeded",
+        currentCount: subscription.deviceCount,
+        maxAllowed,
+        upgradeUrl: "/api/billing/plans",
+      }, 403);
+    }
+
+    await next();
   };
 }
 
