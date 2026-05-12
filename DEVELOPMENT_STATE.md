@@ -54,6 +54,7 @@ src/
     notification-email.adapter.ts
     notification-push.adapter.ts
     notification-registry.ts
+    wompi-adapter.ts
   auth/
     jwks-cache.service.ts
     jwt-verifier.ts
@@ -61,10 +62,13 @@ src/
     schemas/ (16 tablas)
   middleware/
     auth.middleware.ts
+    subscription.middleware.ts
   routes/
     devices.routes.ts
     telemetry.routes.ts
     alerts.routes.ts
+    billing.routes.ts
+    webhook.routes.ts
   services/
     aggregation-cron.service.ts
     aggregation-cron.helpers.ts
@@ -78,13 +82,19 @@ src/
     notification-dispatcher.service.ts
     alert-management.service.ts
     ai-orchestrator.service.ts
+    subscription.service.ts
+    billing-cron.service.ts
+    usage-tracking.service.ts
+    plan-feature.service.ts
   utils/
     db.util.ts
     gaussian-noise.util.ts
-  validators/ (7 validators)
+  validators/ (8 validators — added billing checkout + webhook)
   index.ts
   types/
     env.ts
+    billing.types.ts
+    wompi.ts
 supabase/
   config.toml
   migrations/
@@ -92,9 +102,27 @@ supabase/
     001_custom_claims_hook.sql
 ```
 
+**FASE 5 — BILLING: Completada**
+- billing.types.ts: PlanName, SubscriptionStatus, PaymentStatus, PaymentMethod, FeatureName, PlanFeatures, CheckoutRequest, SubscriptionResponse, PaymentResponse
+- wompi.ts: WompiPaymentLinkRequest, WompiPaymentLinkResponse, WompiTransaction, WompiWebhookPayload, WompiWebhookHeaders
+- plan-feature.service.ts: PLAN_FEATURES constant + 4 helper functions (getPlanFeatures, hasFeature, getDeviceLimit, getReadingsPerHourLimit)
+- billing.validator.ts: extended with checkoutRequestValidator, wompiWebhookValidator, planNameValidator, paymentQueryValidator
+- plan-feature.service.test.ts: 21 TDD tests (all passing)
+- payments + wompi_events schemas (Drizzle ORM)
+- subscription.service.ts: lifecycle management + status transitions
+- subscription-middleware.ts: requireSubscription, requireFeature, requireDeviceQuota
+- wompi-adapter.ts: createPaymentLink, verifyWebhookSignature (HMAC-SHA256), handleWebhookEvent (idempotent)
+- billing.routes.ts: POST /checkout, GET /subscription, GET /plans, GET /payments (auth + org-scoped)
+- webhook.routes.ts: POST /webhooks/wompi (NO auth, HMAC-only verification)
+- billing-cron.service.ts: runBillingValidationCycle — daily subscription lifecycle enforcement (trial→suspended, past_due→suspended, suspended→cancelled, 3-day expiry warning)
+- env.ts: added WOMPI_PUBLIC_KEY, WOMPI_EVENT_INTEGRITY_KEY
+- index.ts: wired billing + webhook routes + cron trigger
+- billing-integration.test.ts: 8 integration tests (full lifecycle, middleware+routes, webhook flow, cron transitions)
+- billing-edge-cases.test.ts: 12 edge case tests (cancelled terminal state, idempotent activation, throttle at exact limit, new hour bucket, old HMAC timestamp, invalid HMAC, duplicate webhook idempotency, enterprise Infinity limits, starter/trial empty features)
+- Total: 516 tests pasando, 0 TypeScript errors (source)
+
 ## Próximos pasos
-1. **FASE 5 — BILLING:** Wompi Sandbox -> webhooks -> validacion diaria
-2. **FASE 6 — UI:** 4 dashboards — ver `apps/web/`
+1. **FASE 6 — UI:** 4 dashboards — ver `apps/web/`
 
 ## Errores conocidos
 - wrangler.toml tiene IDs PLACEHOLDER para D1 y KV — crear recursos reales con `wrangler login` + `wrangler d1 create` + `wrangler kv namespace create`
