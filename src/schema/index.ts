@@ -17,3 +17,5 @@ export { complianceReports, complianceReportTypeEnum, complianceReportStatusEnum
 export { hourlyAverages } from "./hourly-averages";
 export { dailySummaries } from "./daily-summaries";
 export { weatherCache } from "./weather-cache";
+export { payments, paymentStatusEnum, paymentMethodEnum } from "./payments";
+export { wompiEvents } from "./wompi-events";
