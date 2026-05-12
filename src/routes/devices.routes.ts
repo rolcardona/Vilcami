@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { Env } from "../types/env";
 import { authMiddleware, orgScopingMiddleware } from "../middleware/auth.middleware";
+import { requireSubscription, requireDeviceQuota } from "../middleware/subscription.middleware";
 import type { JwtPayload } from "../auth/jwt-verifier";
 import * as deviceManagementService from "../services/device-management.service";
 
@@ -13,7 +14,7 @@ deviceRoutes.use("*", orgScopingMiddleware);
 // -------------------------------------------------------------------------
 // GET / — list all devices for the authenticated organization
 // -------------------------------------------------------------------------
-deviceRoutes.get("/", async (c) => {
+deviceRoutes.get("/", requireSubscription(), async (c) => {
   const organizationFilter = c.get("organizationFilter");
   const result = await deviceManagementService.listDevices(c.env, organizationFilter);
   return c.json(result);
@@ -37,7 +38,7 @@ deviceRoutes.get("/:deviceId", async (c) => {
 // -------------------------------------------------------------------------
 // POST / — create a new device
 // -------------------------------------------------------------------------
-deviceRoutes.post("/", async (c) => {
+deviceRoutes.post("/", requireSubscription(), requireDeviceQuota(), async (c) => {
   const jwtPayload = c.get("jwtPayload") as JwtPayload;
   if (!jwtPayload.org_id) {
     return c.json({ error: "User must belong to an organization to create devices" }, 403);

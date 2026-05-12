@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { Env } from "../types/env";
 import type { JwtPayload } from "../auth/jwt-verifier";
 import { authMiddleware, orgScopingMiddleware } from "../middleware/auth.middleware";
+import { requireSubscription } from "../middleware/subscription.middleware";
 import {
 	ingestTelemetry,
 	ingestTelemetryBulk,
@@ -14,7 +15,7 @@ telemetryRoutes.use("*", authMiddleware);
 telemetryRoutes.use("*", orgScopingMiddleware);
 
 // POST /api/telemetry/ingest — ingest a single telemetry reading
-telemetryRoutes.post("/ingest", async (c) => {
+telemetryRoutes.post("/ingest", requireSubscription(), async (c) => {
 	const jwtPayload = c.get("jwtPayload") as JwtPayload;
 	if (!jwtPayload.org_id) {
 		return c.json({ error: "User must belong to an organization to ingest telemetry" }, 403);
@@ -31,7 +32,7 @@ telemetryRoutes.post("/ingest", async (c) => {
 });
 
 // POST /api/telemetry/ingest/bulk — ingest multiple telemetry readings
-telemetryRoutes.post("/ingest/bulk", async (c) => {
+telemetryRoutes.post("/ingest/bulk", requireSubscription(), async (c) => {
 	const jwtPayload = c.get("jwtPayload") as JwtPayload;
 	if (!jwtPayload.org_id) {
 		return c.json({ error: "User must belong to an organization to ingest telemetry" }, 403);
@@ -48,7 +49,7 @@ telemetryRoutes.post("/ingest/bulk", async (c) => {
 });
 
 // GET /api/telemetry/:deviceId — fetch recent telemetry for a device from KV
-telemetryRoutes.get("/:deviceId", async (c) => {
+telemetryRoutes.get("/:deviceId", requireSubscription(), async (c) => {
 	const jwtPayload = c.get("jwtPayload") as JwtPayload;
 	const deviceIdentifier = c.req.param("deviceId");
 	const maxEntries = Math.min(

@@ -36,6 +36,12 @@ vi.mock("../../services/telemetry-ingestion.service", () => ({
 	ingestTelemetryBulk: mockBulk,
 }));
 
+vi.mock("../../middleware/subscription.middleware", () => ({
+	requireSubscription: () => async (_c: any, next: any) => next(),
+	requireFeature: () => async (_c: any, next: any) => next(),
+	requireDeviceQuota: () => async (_c: any, next: any) => next(),
+}));
+
 interface KvOptions {
 	keys?: Array<{ name: string }>;
 	data?: Record<string, string>;
@@ -58,6 +64,10 @@ function mockEnv(options?: KvOptions): Env {
 		ENCRYPTION_KEY: "test-key",
 		SUPABASE_URL: "https://test-project.supabase.co",
 		SUPABASE_ANON_KEY: "test-anon-key",
+		THROTTLE_KV: {} as KVNamespace,
+		WOMPI_BASE_URL: "https://sandbox.wompi.co/v1",
+			WOMPI_PUBLIC_KEY: "test-pub-key",
+			WOMPI_EVENT_INTEGRITY_KEY: "test-integrity-key",
 		AI: { run: vi.fn() } as unknown as Ai,
 	};
 }

@@ -3,12 +3,15 @@ import type { Env } from "./types/env";
 import { deviceRoutes } from "./routes/devices.routes";
 import { telemetryRoutes } from "./routes/telemetry.routes";
 import { alertRoutes, pushSubscriptionRoutes } from "./routes/alerts.routes";
+import { billingRoutes } from "./routes/billing.routes";
+import { webhookRoutes } from "./routes/webhook.routes";
 import {
   computeHourlyAggregations,
   computeDailySummaries,
 } from "./services/aggregation-cron.service";
 import type { TelemetryEntry } from "./services/aggregation-cron.service";
 import { runIntelligentMonitoringCycle } from "./services/ai-orchestrator.service";
+import { runBillingValidationCycle } from "./services/billing-cron.service";
 import { getDrizzleDb } from "./utils/db.util";
 import { hourlyAverages } from "./schema/hourly-averages";
 import { dailySummaries } from "./schema/daily-summaries";
@@ -33,6 +36,8 @@ app.route("/api/devices", deviceRoutes);
 app.route("/api/telemetry", telemetryRoutes);
 app.route("/api/alerts", alertRoutes);
 app.route("/api/push-subscriptions", pushSubscriptionRoutes);
+app.route("/api/billing", billingRoutes);
+app.route("/api/webhooks", webhookRoutes);
 
 // ---------------------------------------------------------------------------
 // Cron: hourly aggregation (KV raw telemetry → D1 hourly_averages + daily_summaries)
@@ -116,5 +121,6 @@ export default {
   scheduled: async (event: ScheduledEvent, env: Env, ctx: ExecutionContext) => {
     ctx.waitUntil(runHourlyAggregation(env));
     ctx.waitUntil(runIntelligentMonitoringCycle(env));
+    ctx.waitUntil(runBillingValidationCycle(env));
   },
 };

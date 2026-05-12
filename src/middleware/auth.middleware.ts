@@ -53,6 +53,7 @@ export async function orgScopingMiddleware(c: Context, next: Next): Promise<void
   const jwtPayload = c.get("jwtPayload") as JwtPayload;
   const organizationFilter = getOrganizationFilter(jwtPayload);
   c.set("organizationFilter", organizationFilter);
+  c.set("organizationId", jwtPayload.org_id ?? "");
   await next();
 }
 
@@ -68,5 +69,6 @@ declare module "hono" {
   interface ContextVariableMap {
     jwtPayload: JwtPayload;
     organizationFilter: string | null;
+    organizationId: string;
   }
 }

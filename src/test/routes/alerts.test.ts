@@ -14,6 +14,12 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("../../services/alert-management.service", () => mocks);
 
+vi.mock("../../middleware/subscription.middleware", () => ({
+  requireFeature: () => async (_c: any, next: any) => next(),
+  requireSubscription: () => async (_c: any, next: any) => next(),
+  requireDeviceQuota: () => async (_c: any, next: any) => next(),
+}));
+
 async function generateTestKeyPair(): Promise<CryptoKeyPair> {
   return crypto.subtle.generateKey(
     { name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
@@ -54,6 +60,10 @@ function createTestEnv(): Env {
     ENCRYPTION_KEY: "test-key",
     SUPABASE_URL: "https://test-project.supabase.co",
     SUPABASE_ANON_KEY: "test-anon-key",
+    THROTTLE_KV: {} as KVNamespace,
+    WOMPI_BASE_URL: "https://sandbox.wompi.co/v1",
+    WOMPI_PUBLIC_KEY: "test-pub-key",
+    WOMPI_EVENT_INTEGRITY_KEY: "test-integrity-key",
     AI: { run: vi.fn() } as unknown as Ai,
   };
 }

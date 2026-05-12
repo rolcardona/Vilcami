@@ -37,6 +37,10 @@ function createTestEnv(publicKeyJwk: JsonWebKey): Env {
     ENCRYPTION_KEY: "test",
     SUPABASE_URL: "https://test-project.supabase.co",
     SUPABASE_ANON_KEY: "test",
+    THROTTLE_KV: {} as KVNamespace,
+    WOMPI_BASE_URL: "https://sandbox.wompi.co/v1",
+    WOMPI_PUBLIC_KEY: "test-pub-key",
+    WOMPI_EVENT_INTEGRITY_KEY: "test-integrity-key",
     AI: { run: vi.fn() } as unknown as Ai,
   };
 }

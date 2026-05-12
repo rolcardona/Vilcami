@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { Env } from "../types/env";
 import { authMiddleware, orgScopingMiddleware } from "../middleware/auth.middleware";
+import { requireFeature } from "../middleware/subscription.middleware";
 import type { JwtPayload } from "../auth/jwt-verifier";
 import {
   listAlertsValidator,
@@ -129,10 +130,10 @@ alertRoutes.patch("/:alertId/resolve", async (c) => {
 });
 
 // ---------------------------------------------------------------------------
-// POST /:alertId/shelve — Temporarily shelve alert
+// POST /:alertId/shelve — Temporarily shelve alert (requires advanced_escalation feature)
 // ---------------------------------------------------------------------------
-alertRoutes.post("/:alertId/shelve", async (c) => {
-  const alertId = c.req.param("alertId");
+alertRoutes.post("/:alertId/shelve", requireFeature('advanced_escalation'), async (c) => {
+  const alertId = c.req.param("alertId") as string;
   const organizationFilter = c.get("organizationFilter") as string | null;
   const jwtPayload = c.get("jwtPayload") as JwtPayload;
   const requestBody = await c.req.json();
