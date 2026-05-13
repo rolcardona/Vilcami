@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Header } from "@/components/layout/header";
 import { GlassCard } from "@/components/layout/glass-card";
+import { PermissionGuard } from "@/components/shared/permission-guard";
 import { useAlerts, useActiveAlertCount, useAcknowledgeAlert, useResolveAlert } from "@/hooks/use-alerts";
 import { SEVERITY, type Severity } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -90,22 +91,26 @@ export function AlertsPage() {
                   </div>
                   <div className="flex items-center gap-2 ml-4">
                     {alert.status === "active" && (
-                      <button
-                        onClick={() => acknowledge.mutate({ id: alert.id, notes: "Reconocida desde dashboard" })}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-warning/10 border border-warning/20 text-warning text-xs font-medium hover:bg-warning/20 transition-colors"
-                      >
-                        <CheckCircle size={12} />
-                        Reconocer
-                      </button>
+                      <PermissionGuard permission="alerts:acknowledge">
+                        <button
+                          onClick={() => acknowledge.mutate({ id: alert.id, notes: "Reconocida desde dashboard" })}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-warning/10 border border-warning/20 text-warning text-xs font-medium hover:bg-warning/20 transition-colors"
+                        >
+                          <CheckCircle size={12} />
+                          Reconocer
+                        </button>
+                      </PermissionGuard>
                     )}
                     {(alert.status === "active" || alert.status === "acknowledged") && (
-                      <button
-                        onClick={() => resolve.mutate({ id: alert.id, notes: "Resuelta desde dashboard" })}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-accent/10 border border-accent/20 text-accent text-xs font-medium hover:bg-accent/20 transition-colors"
-                      >
-                        <Shield size={12} />
-                        Resolver
-                      </button>
+                      <PermissionGuard permission="alerts:resolve">
+                        <button
+                          onClick={() => resolve.mutate({ id: alert.id, notes: "Resuelta desde dashboard" })}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-accent/10 border border-accent/20 text-accent text-xs font-medium hover:bg-accent/20 transition-colors"
+                        >
+                          <Shield size={12} />
+                          Resolver
+                        </button>
+                      </PermissionGuard>
                     )}
                   </div>
                 </div>

@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { Env } from "../types/env";
 import { authMiddleware, orgScopingMiddleware } from "../middleware/auth.middleware";
 import { requirePermission } from "../middleware/permission.middleware";
+import type { JwtPayload } from "../auth/jwt-verifier";
 import { updatePermissionsValidator } from "../validators/member.validator";
 import * as memberService from "../services/member-management.service";
 
@@ -9,6 +10,21 @@ export const memberRoutes = new Hono<{ Bindings: Env }>();
 
 memberRoutes.use("*", authMiddleware);
 memberRoutes.use("*", orgScopingMiddleware);
+
+// GET /me — get current user's role and permissions (no special permission required)
+memberRoutes.get("/me", async (c) => {
+  const jwtPayload = c.get("jwtPayload") as JwtPayload;
+  const organizationId = c.get("organizationId") as string;
+
+  const result = await memberService.getMyPermissions(
+    c.env,
+    jwtPayload.sub,
+    organizationId,
+    jwtPayload.role,
+  );
+
+  return c.json(result);
+});
 
 // GET / — list members of the organization (requires billing:manage permission)
 memberRoutes.get("/", requirePermission("billing:manage"), async (c) => {

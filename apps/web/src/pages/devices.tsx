@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Header } from "@/components/layout/header";
 import { GlassCard } from "@/components/layout/glass-card";
+import { PermissionGuard } from "@/components/shared/permission-guard";
 import { useDevices, useCreateDevice, useDeleteDevice } from "@/hooks/use-devices";
 import { cn } from "@/lib/utils";
 import { Plus, Trash2, Cpu } from "lucide-react";
@@ -19,13 +20,15 @@ export function DevicesPage() {
           <p className="text-text-secondary text-sm">
             {devices ? `${devices.length} dispositivos` : "Cargando..."}
           </p>
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors"
-          >
-            <Plus size={16} />
-            Nuevo dispositivo
-          </button>
+          <PermissionGuard permission="devices:create">
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white text-sm font-medium transition-colors"
+            >
+              <Plus size={16} />
+              Nuevo dispositivo
+            </button>
+          </PermissionGuard>
         </div>
 
         {isLoading ? (
@@ -45,12 +48,14 @@ export function DevicesPage() {
                     <Cpu size={18} className="text-accent" />
                     <h3 className="font-semibold text-text-primary">{device.name}</h3>
                   </div>
-                  <button
-                    onClick={() => deleteDevice.mutate(device.id)}
-                    className="p-1.5 rounded-lg hover:bg-danger/10 text-text-muted hover:text-danger transition-colors"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  <PermissionGuard permission="devices:delete">
+                    <button
+                      onClick={() => deleteDevice.mutate(device.id)}
+                      className="p-1.5 rounded-lg hover:bg-danger/10 text-text-muted hover:text-danger transition-colors"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </PermissionGuard>
                 </div>
                 <div className="space-y-1 text-sm">
                   <p className="text-text-secondary">

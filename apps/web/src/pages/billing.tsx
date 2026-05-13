@@ -1,5 +1,6 @@
 import { Header } from "@/components/layout/header";
 import { GlassCard } from "@/components/layout/glass-card";
+import { PermissionGuard } from "@/components/shared/permission-guard";
 import { usePlans, useSubscription, usePayments, useCheckout } from "@/hooks/use-billing";
 import { PLAN_LABELS, type PlanName } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -73,18 +74,20 @@ export function BillingPage() {
                   <Feature icon={Check} label={`${plan.dataRetentionDays === 2147483647 ? "Ilimitada" : `${plan.dataRetentionDays} dias`} retencion`} />
                 </div>
                 {plan.name !== currentPlan && (
-                  <button
-                    onClick={() =>
-                      checkout.mutate({
-                        planId: plan.name,
-                        deviceCount: subscription?.deviceCount ?? 1,
-                        returnUrl: window.location.origin + "/billing",
-                      })
-                    }
-                    className="w-full mt-4 py-2 rounded-lg bg-accent/10 border border-accent/20 text-accent text-sm font-medium hover:bg-accent/20 transition-colors"
-                  >
-                    {plan.priceInCents === 0 ? "Plan basico" : "Cambiar plan"}
-                  </button>
+                  <PermissionGuard permission="billing:manage">
+                    <button
+                      onClick={() =>
+                        checkout.mutate({
+                          planId: plan.name,
+                          deviceCount: subscription?.deviceCount ?? 1,
+                          returnUrl: window.location.origin + "/billing",
+                        })
+                      }
+                      className="w-full mt-4 py-2 rounded-lg bg-accent/10 border border-accent/20 text-accent text-sm font-medium hover:bg-accent/20 transition-colors"
+                    >
+                      {plan.priceInCents === 0 ? "Plan basico" : "Cambiar plan"}
+                    </button>
+                  </PermissionGuard>
                 )}
               </GlassCard>
             ))}

@@ -4,10 +4,12 @@ import {
   Cpu,
   Bell,
   CreditCard,
+  Users,
   LogOut,
 } from "lucide-react";
 import { useAuth } from "@/auth/auth-provider";
 import { useActiveAlertCount } from "@/hooks/use-alerts";
+import { usePermissions } from "@/hooks/use-permissions";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -19,6 +21,7 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const { user, signOut } = useAuth();
+  const { hasPermission } = usePermissions();
   const { data: alertCount } = useActiveAlertCount();
 
   const totalAlerts =
@@ -59,6 +62,22 @@ export function Sidebar() {
             )}
           </NavLink>
         ))}
+        {hasPermission("billing:manage") && (
+          <NavLink
+            to="/members"
+            className={({ isActive }) =>
+              cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors relative",
+                isActive
+                  ? "bg-accent/10 text-accent border border-accent/20"
+                  : "text-text-secondary hover:text-text-primary hover:bg-white/5"
+              )
+            }
+          >
+            <Users size={18} />
+            Miembros
+          </NavLink>
+        )}
       </nav>
 
       <div className="border-t border-white/5 pt-4 mt-2">
