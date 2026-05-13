@@ -17,7 +17,10 @@ function createTestEnv(overrides?: { orgIntegrityKey?: string }): Env {
     ENCRYPTION_KEY: "test-key",
     SUPABASE_URL: "https://test-project.supabase.co",
     SUPABASE_ANON_KEY: "test-anon-key",
-    THROTTLE_KV: {} as KVNamespace,
+    THROTTLE_KV: {
+      get: vi.fn().mockResolvedValue(null),
+      put: vi.fn().mockResolvedValue(undefined),
+    } as unknown as KVNamespace,
     WOMPI_BASE_URL: "https://sandbox.wompi.co/v1",
     WOMPI_PUBLIC_KEY: "test-pub-key",
     WOMPI_EVENT_INTEGRITY_KEY: "test-integrity-key",

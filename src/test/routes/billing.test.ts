@@ -32,6 +32,11 @@ vi.mock("../../utils/db.util", () => ({
                 all: vi.fn(),
               })),
             })),
+            all: vi.fn().mockResolvedValue([
+              { name: "Starter", pricePerDeviceCents: 850000 },
+              { name: "Professional", pricePerDeviceCents: 1490000 },
+              { name: "Enterprise", pricePerDeviceCents: 2150000 },
+            ]),
           })),
         };
       }),
@@ -401,10 +406,10 @@ describe("Billing Routes", () => {
   });
 
   // -------------------------------------------------------------------------
-  // GET /plans
+  // GET /plans — pricing now derived from DB (Finding #24)
   // -------------------------------------------------------------------------
   describe("GET /api/billing/plans", () => {
-    it("returns all plan features with pricing", async () => {
+    it("returns all plan features with pricing from DB", async () => {
       const app = mountApp();
       const env = createTestEnv();
       const headers = await createAuthHeaders();
@@ -418,6 +423,32 @@ describe("Billing Routes", () => {
       expect(planNames).toContain("starter");
       expect(planNames).toContain("professional");
       expect(planNames).toContain("enterprise");
+    });
+
+    it("includes DB-derived pricing for each plan", async () => {
+      const app = mountApp();
+      const env = createTestEnv();
+      const headers = await createAuthHeaders();
+      const res = await app.request("/api/billing/plans", { headers }, env);
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { plans: Array<{ name: string; pricePerDeviceCents: number }> };
+      const starterPlan = body.plans.find((p) => p.name === "starter");
+      const professionalPlan = body.plans.find((p) => p.name === "professional");
+      expect(starterPlan?.pricePerDeviceCents).toBe(850000);
+      expect(professionalPlan?.pricePerDeviceCents).toBe(1490000);
+    });
+
+    it("defaults trial plan pricing to 0 when DB has no trial row", async () => {
+      const app = mountApp();
+      const env = createTestEnv();
+      const headers = await createAuthHeaders();
+      const res = await app.request("/api/billing/plans", { headers }, env);
+
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { plans: Array<{ name: string; pricePerDeviceCents: number }> };
+      const trialPlan = body.plans.find((p) => p.name === "trial");
+      expect(trialPlan?.pricePerDeviceCents).toBe(0);
     });
   });
 

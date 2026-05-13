@@ -118,12 +118,17 @@ billingRoutes.get("/subscription", async (c) => {
 // GET /plans — List available plans with features and pricing
 // ---------------------------------------------------------------------------
 billingRoutes.get("/plans", async (c) => {
-  const planPricing: Record<string, number> = {
-    trial: 0,
-    starter: 850000,
-    professional: 1490000,
-    enterprise: 2150000,
-  };
+  // Derive pricing from DB (subscriptionPlans table) instead of hardcoding.
+  // This keeps a single source of truth with the /checkout endpoint.
+  const db = getDrizzleDb(c.env);
+  const planRows = await db.select({
+    name: subscriptionPlans.name,
+    pricePerDeviceCents: subscriptionPlans.pricePerDeviceCents,
+  }).from(subscriptionPlans).all();
+
+  const planPricing: Record<string, number> = Object.fromEntries(
+    planRows.map((row) => [row.name.toLowerCase(), row.pricePerDeviceCents]),
+  );
 
   const plans = Object.entries(PLAN_FEATURES).map(([name, features]) => ({
     name,
