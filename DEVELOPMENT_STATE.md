@@ -119,10 +119,17 @@ supabase/
 - index.ts: wired billing + webhook routes + cron trigger
 - billing-integration.test.ts: 8 integration tests (full lifecycle, middleware+routes, webhook flow, cron transitions)
 - billing-edge-cases.test.ts: 12 edge case tests (cancelled terminal state, idempotent activation, throttle at exact limit, new hour bucket, old HMAC timestamp, invalid HMAC, duplicate webhook idempotency, enterprise Infinity limits, starter/trial empty features)
-- Total: 516 tests pasando, 0 TypeScript errors (source)
+- Total: 572 tests pasando, 0 TypeScript errors (source)
+
+**Phase 5 — BILLING Audit Fixes (post-implementation):**
+- Groups 1-5 (CRITICAL+HIGH): State machine transitions, payment amount security, webhook timestamp/idempotency, FK integrity, per-org Wompi keys
+- Group 6 (HIGH #11): KV throttle TOCTOU race — consolidated checkThrottle + incrementThrottleCounter into atomic checkAndIncrementThrottle; old functions @deprecated wrappers
+- Group 7 (MEDIUM #12,#16,#17,#18): Deprecated checkAndTransitionSubscription, getSubscriptionStatus throws NotFoundError instead of null, FK constraint on wompi_events.organizationId already present, currentPeriodStart/End fallback logic fixed (trialEndsAt only for trial status)
+- Group 8 (LOW #19-24): Webhook per-IP rate limiting (60 req/min), org-scoping guard rail comment on wompi_events, getMinimumPlanForFeature derived from PLAN_FEATURES dynamically, SQLite trigger for payments.updatedAt, billing cron warning log accuracy, plan pricing from DB instead of hardcoded
 
 ## Próximos pasos
 1. **FASE 6 — UI:** 4 dashboards — ver `apps/web/`
+2. **Production hardening (Phase 4 audit backlog):** C4 (org-scoped Vault keys), H7 (notification rate limiting), H8 (VAPID JWT signing), H9 (AI model fallback), M4 (listAlerts count), M7 (email HTML injection), M8 (alert rule channels ignored)
 
 ## Errores conocidos
 - wrangler.toml tiene IDs PLACEHOLDER para D1 y KV — crear recursos reales con `wrangler login` + `wrangler d1 create` + `wrangler kv namespace create`
