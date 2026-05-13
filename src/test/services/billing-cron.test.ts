@@ -9,6 +9,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { SubscriptionStatus } from "../../types/billing.types";
+import { NotFoundError } from "../../errors/not-found.error";
 
 // ---------------------------------------------------------------------------
 // Mock Drizzle DB — chainable query builder pattern
@@ -390,12 +391,12 @@ describe("runBillingValidationCycle", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Should skip orgs with no subscription (null return) gracefully
+  // Should skip orgs with no subscription (NotFoundError) gracefully
   // ---------------------------------------------------------------------------
-  it("should skip orgs with no subscription (null return) gracefully", async () => {
+  it("should skip orgs with no subscription (NotFoundError) gracefully", async () => {
     mockDb.all.mockResolvedValueOnce([{ id: "org-new" }, { id: "org-active" }]);
     vi.mocked(getSubscriptionStatus)
-      .mockResolvedValueOnce(null)
+      .mockRejectedValueOnce(new NotFoundError("Subscription", "org-new"))
       .mockResolvedValueOnce(
         makeSubscriptionStatus({ organizationId: "org-active", status: "active" }),
       );
@@ -408,7 +409,7 @@ describe("runBillingValidationCycle", () => {
     expect(results[0].warningSent).toBe(false);
     expect(results[1].organizationId).toBe("org-active");
     expect(results[1].status).toBe("active");
-    // No error logged for null subscription — it's an expected case
+    // No error logged for NotFoundError — it's an expected case
     expect(console.error).not.toHaveBeenCalled();
   });
 });

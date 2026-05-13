@@ -11,6 +11,7 @@ import type { FeatureName, PlanName } from "../types/billing.types";
 import { getSubscriptionStatus } from "../services/subscription.service";
 import { hasFeature, getDeviceLimit } from "../services/plan-feature.service";
 import { getDrizzleDb } from "../utils/db.util";
+import { NotFoundError } from "../errors/not-found.error";
 
 /** Subscription statuses that allow API access */
 const ALLOWED_STATUSES = new Set(["trial", "active", "past_due"]);
@@ -27,12 +28,17 @@ export function requireSubscription() {
 
     const db = getDrizzleDb(c.env);
 
-    const subscription = await getSubscriptionStatus(db, organizationId);
-    if (!subscription) {
-      return c.json({
-        error: "no_subscription",
-        upgradeInfo: { currentStatus: "none", message: "No subscription found for your organization." },
-      }, 402);
+    let subscription: Awaited<ReturnType<typeof getSubscriptionStatus>>;
+    try {
+      subscription = await getSubscriptionStatus(db, organizationId);
+    } catch (error: unknown) {
+      if (error instanceof NotFoundError) {
+        return c.json({
+          error: "no_subscription",
+          upgradeInfo: { currentStatus: "none", message: "No subscription found for your organization." },
+        }, 404);
+      }
+      throw error;
     }
 
     const status = subscription.status;
@@ -87,14 +93,19 @@ export function requireFeature(featureName: FeatureName) {
 
     const db = getDrizzleDb(c.env);
 
-    const subscription = await getSubscriptionStatus(db, organizationId);
-    if (!subscription) {
-      return c.json({
-        error: "feature_not_included",
-        requiredPlan: getMinimumPlanForFeature(featureName),
-        currentPlan: "none",
-        upgradeUrl: "/api/billing/plans",
-      }, 403);
+    let subscription: Awaited<ReturnType<typeof getSubscriptionStatus>>;
+    try {
+      subscription = await getSubscriptionStatus(db, organizationId);
+    } catch (error: unknown) {
+      if (error instanceof NotFoundError) {
+        return c.json({
+          error: "feature_not_included",
+          requiredPlan: getMinimumPlanForFeature(featureName),
+          currentPlan: "none",
+          upgradeUrl: "/api/billing/plans",
+        }, 403);
+      }
+      throw error;
     }
 
     const planName = subscription.planName as PlanName;
@@ -125,14 +136,19 @@ export function requireDeviceQuota() {
 
     const db = getDrizzleDb(c.env);
 
-    const subscription = await getSubscriptionStatus(db, organizationId);
-    if (!subscription) {
-      return c.json({
-        error: "device_quota_exceeded",
-        currentCount: 0,
-        maxAllowed: 0,
-        upgradeUrl: "/api/billing/plans",
-      }, 403);
+    let subscription: Awaited<ReturnType<typeof getSubscriptionStatus>>;
+    try {
+      subscription = await getSubscriptionStatus(db, organizationId);
+    } catch (error: unknown) {
+      if (error instanceof NotFoundError) {
+        return c.json({
+          error: "device_quota_exceeded",
+          currentCount: 0,
+          maxAllowed: 0,
+          upgradeUrl: "/api/billing/plans",
+        }, 403);
+      }
+      throw error;
     }
 
     const planName = subscription.planName as PlanName;
