@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import type { Env } from "./types/env";
 import { deviceRoutes } from "./routes/devices.routes";
 import { telemetryRoutes } from "./routes/telemetry.routes";
@@ -17,6 +18,26 @@ import { hourlyAverages } from "./schema/hourly-averages";
 import { dailySummaries } from "./schema/daily-summaries";
 
 export const app = new Hono<{ Bindings: Env }>();
+
+// ---------------------------------------------------------------------------
+// CORS — allow frontend (Vercel + localhost dev)
+// ---------------------------------------------------------------------------
+app.use("*", async (c, next) => {
+  const allowedOrigins = [
+    c.env.FRONTEND_URL,
+    "http://localhost:5173",
+    "http://localhost:4173",
+  ].filter(Boolean);
+
+  return cors({
+    origin: allowedOrigins,
+    allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allowHeaders: ["Content-Type", "Authorization"],
+    exposeHeaders: ["X-Total-Count"],
+    maxAge: 86400,
+    credentials: true,
+  })(c, next);
+});
 
 // ---------------------------------------------------------------------------
 // Health / status

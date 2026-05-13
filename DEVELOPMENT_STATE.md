@@ -5,8 +5,10 @@
 - Drizzle schemas: 16 tablas implementadas
 - Zod validators: 5 validators implementados
 - KV Vault (AES-GCM): Implementado (Web Crypto puro, sin Buffer)
-- Migraciones D1: generadas
+- Migraciones D1: generadas y aplicadas (ID: a2c74a97-cd31-4a1c-9ad1-266e9b4f6cab)
 - Worker entry point: Implementado (Hono)
+- KV namespaces: TELEMETRY_RAW, SECRETS_VAULT, THROTTLE_KV creados
+- Cloudflare auth: API token persistente en ~/.bashrc, account_id en wrangler.toml
 
 **FASE 2 — IOT: Completada**
 - DeviceAdapter interface + SimulatedDeviceProvider (sine-wave + Gaussian noise)
@@ -132,7 +134,6 @@ supabase/
 2. **Production hardening (Phase 4 audit backlog):** C4 (org-scoped Vault keys), H7 (notification rate limiting), H8 (VAPID JWT signing), H9 (AI model fallback), M4 (listAlerts count), M7 (email HTML injection), M8 (alert rule channels ignored)
 
 ## Errores conocidos
-- wrangler.toml tiene IDs PLACEHOLDER para D1 y KV — crear recursos reales con `wrangler login` + `wrangler d1 create` + `wrangler kv namespace create`
 - vitest environment es "node" (no Workers pool) — migrar a `@cloudflare/vitest-pool-workers` antes de Fase 6
 - Tests usan mocks de Drizzle con patrón chainable (no distinguen queries individuales) — mejorar en producción
 

@@ -2,6 +2,7 @@ name = "vilcami-worker"
 main = "src/index.ts"
 compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat"]
+account_id = "df47b9dce39fbc1cc24056932f616630"
 
 [triggers]
 crons = ["0 * * * *"]
@@ -9,23 +10,24 @@ crons = ["0 * * * *"]
 [vars]
 SUPABASE_URL = "https://fqcugzmklzdjwwvwnslg.supabase.co"
 WOMPI_BASE_URL = "https://sandbox.wompi.co/v1"
+FRONTEND_URL = "http://localhost:5173"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "vilcami-db"
-database_id = "PLACEHOLDER_WILL_BE_CREATED"
+database_id = "a2c74a97-cd31-4a1c-9ad1-266e9b4f6cab"
 
 [[kv_namespaces]]
 binding = "TELEMETRY_RAW"
-id = "PLACEHOLDER_WILL_BE_CREATED"
+id = "8b262a35e10a4abf9586ee5710f9699f"
 
 [[kv_namespaces]]
 binding = "SECRETS_VAULT"
-id = "PLACEHOLDER_WILL_BE_CREATED"
+id = "3fe278b1bd6a4966822a686f4d4c4899"
 
 [[kv_namespaces]]
 binding = "THROTTLE_KV"
-id = "PLACEHOLDER_WILL_BE_CREATED"
+id = "13cfd7fb80c04b6a8660c34a1253dc98"
 
 # Workers AI binding (Phase 4)
 [ai]

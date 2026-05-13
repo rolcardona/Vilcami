@@ -9,5 +9,6 @@ export interface Env {
   WOMPI_BASE_URL: string;
   WOMPI_PUBLIC_KEY: string;
   WOMPI_EVENT_INTEGRITY_KEY: string;
+  FRONTEND_URL: string; // Vercel frontend origin for CORS
   AI: Ai; // Workers AI binding (Phase 4)
 }
