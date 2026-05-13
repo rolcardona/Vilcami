@@ -11,6 +11,10 @@ coverage/
 # Supabase local temp
 supabase/.temp/
 
+# Playwright
+test-results/
+playwright-report/
+
 # Encrypted credentials — never commit these
 scripts/tuya-credentials.key
 scripts/tuya-credentials.encrypted.json
