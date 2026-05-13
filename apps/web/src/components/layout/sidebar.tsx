@@ -7,6 +7,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { useAuth } from "@/auth/auth-provider";
+import { useActiveAlertCount } from "@/hooks/use-alerts";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -18,6 +19,13 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const { user, signOut } = useAuth();
+  const { data: alertCount } = useActiveAlertCount();
+
+  const totalAlerts =
+    (alertCount?.critical ?? 0) +
+    (alertCount?.high ?? 0) +
+    (alertCount?.medium ?? 0) +
+    (alertCount?.low ?? 0);
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 glass-strong flex flex-col p-4 z-50">
@@ -35,7 +43,7 @@ export function Sidebar() {
             to={to}
             className={({ isActive }) =>
               cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
+                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors relative",
                 isActive
                   ? "bg-accent/10 text-accent border border-accent/20"
                   : "text-text-secondary hover:text-text-primary hover:bg-white/5"
@@ -44,6 +52,11 @@ export function Sidebar() {
           >
             <Icon size={18} />
             {label}
+            {to === "/alerts" && totalAlerts > 0 && (
+              <span className="ml-auto px-1.5 py-0.5 rounded-full bg-danger text-white text-xs font-bold min-w-[20px] text-center">
+                {totalAlerts}
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>
