@@ -68,6 +68,7 @@ import {
   getOrgPlanName,
 } from "../../services/subscription.service";
 import { getDeviceLimit } from "../../services/plan-feature.service";
+import { NotFoundError } from "../../errors/not-found.error";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -201,6 +202,62 @@ describe("subscription.service", () => {
       expect(result!.currentPeriodEnd).toBe(0);
     });
 
+    it("uses currentPeriodStart directly for active subscriptions (no trialStartsAt fallback)", async () => {
+      const activeRow = makeSubscriptionRow({
+        status: "active",
+        currentPeriodStart: new Date("2024-02-01"),
+        currentPeriodEnd: new Date("2024-03-01"),
+        trialStartsAt: new Date("2024-01-01"),
+      });
+      mockDb.get.mockResolvedValueOnce(activeRow);
+      mockDb.get.mockResolvedValueOnce({ name: "Starter" });
+      mockDb.all.mockResolvedValueOnce([{ count: 2 }]);
+
+      const result = await getSubscriptionStatus(mockDb, ORG_ID);
+
+      expect(result).not.toBeNull();
+      // Must be currentPeriodStart (Feb 1), NOT trialStartsAt (Jan 1)
+      expect(result!.currentPeriodStart).toBe(new Date("2024-02-01").getTime());
+    });
+
+    it("returns currentPeriodStart=0 for active subscription with null currentPeriodStart", async () => {
+      const activeRow = makeSubscriptionRow({
+        status: "active",
+        currentPeriodStart: null,
+        currentPeriodEnd: new Date("2024-03-01"),
+        trialStartsAt: new Date("2024-01-01"),
+      });
+      mockDb.get.mockResolvedValueOnce(activeRow);
+      mockDb.get.mockResolvedValueOnce({ name: "Starter" });
+      mockDb.all.mockResolvedValueOnce([{ count: 2 }]);
+
+      const result = await getSubscriptionStatus(mockDb, ORG_ID);
+
+      expect(result).not.toBeNull();
+      // For non-trial, should return 0, not fall back to trialStartsAt
+      expect(result!.currentPeriodStart).toBe(0);
+    });
+
+    it("uses trialStartsAt fallback for trial subscriptions when currentPeriodStart is null", async () => {
+      const trialRow = makeSubscriptionRow({
+        status: "trial",
+        currentPeriodStart: null,
+        currentPeriodEnd: null,
+        trialStartsAt: new Date("2024-01-01"),
+        trialEndsAt: new Date("2024-01-31"),
+      });
+      mockDb.get.mockResolvedValueOnce(trialRow);
+      mockDb.get.mockResolvedValueOnce({ name: "Starter" });
+      mockDb.all.mockResolvedValueOnce([{ count: 1 }]);
+
+      const result = await getSubscriptionStatus(mockDb, ORG_ID);
+
+      expect(result).not.toBeNull();
+      expect(result!.status).toBe("trial");
+      // For trial, should fall back to trialStartsAt
+      expect(result!.currentPeriodStart).toBe(new Date("2024-01-01").getTime());
+    });
+
     it("uses trialEndsAt fallback for trial subscriptions when currentPeriodEnd is null", async () => {
       const trialRow = makeSubscriptionRow({
         status: "trial",
@@ -221,12 +278,17 @@ describe("subscription.service", () => {
       expect(result!.currentPeriodEnd).toBe(new Date("2024-01-31").getTime());
     });
 
-    it("returns null when no subscription found for org", async () => {
+    it("throws NotFoundError when no subscription found for org", async () => {
       mockDb.get.mockResolvedValueOnce(null);
 
-      const result = await getSubscriptionStatus(mockDb, ORG_ID);
-
-      expect(result).toBeNull();
+      try {
+        await getSubscriptionStatus(mockDb, ORG_ID);
+        expect.fail("Expected NotFoundError to be thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(NotFoundError);
+        expect((error as NotFoundError).resourceType).toBe("Subscription");
+        expect((error as NotFoundError).resourceId).toBe(ORG_ID);
+      }
     });
   });
 

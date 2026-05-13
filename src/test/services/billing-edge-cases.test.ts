@@ -61,6 +61,7 @@ vi.mock("../../services/subscription.service", () => ({
 }));
 
 import { transitionSubscriptionStatus, activateSubscription, getSubscriptionStatus } from "../../services/subscription.service";
+import { NotFoundError } from "../../errors/not-found.error";
 import { PLAN_FEATURES, hasFeature, getDeviceLimit, getReadingsPerHourLimit } from "../../services/plan-feature.service";
 import { checkThrottle } from "../../services/usage-tracking.service";
 import { createMockKV, makeHourBucket, ORG_ID, DEVICE_ID } from "./usage-tracking.helpers";
@@ -117,10 +118,9 @@ describe("Subscription service edge cases", () => {
     expect(result.status).toBe("active");
   });
 
-  it("getSubscriptionStatus returns null for org with no subscription row", async () => {
-    vi.mocked(getSubscriptionStatus).mockResolvedValueOnce(null);
-    const result = await getSubscriptionStatus(mockDb, ORG_EC);
-    expect(result).toBeNull();
+  it("getSubscriptionStatus throws NotFoundError for org with no subscription row", async () => {
+    vi.mocked(getSubscriptionStatus).mockRejectedValueOnce(new NotFoundError("Subscription", ORG_EC));
+    await expect(getSubscriptionStatus(mockDb, ORG_EC)).rejects.toThrow("Subscription not found");
   });
 });
 

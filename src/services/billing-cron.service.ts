@@ -14,6 +14,7 @@ import {
   getSubscriptionStatus,
   transitionSubscriptionStatus,
 } from "./subscription.service";
+import { NotFoundError } from "../errors/not-found.error";
 import type { Env } from "../types/env";
 
 // ---------------------------------------------------------------------------
@@ -86,7 +87,13 @@ async function processOrganizationBilling(
   const cycleStartMs = Date.now();
   let warningSent = false;
 
-  const subscription = await getSubscriptionStatus(db, organizationId);
+  const subscription = await getSubscriptionStatus(db, organizationId).catch(
+    (error: unknown) => {
+      // Orgs without a subscription row are expected — skip gracefully
+      if (error instanceof NotFoundError) return null;
+      throw error;
+    },
+  );
   if (!subscription) {
     return {
       organizationId,

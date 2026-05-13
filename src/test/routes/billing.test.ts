@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, beforeAll, afterEach } from "vitest";
 import { Hono } from "hono";
 import type { Env } from "../../types/env";
+import { NotFoundError } from "../../errors/not-found.error";
 
 vi.mock("../../services/subscription.service", () => ({
   getSubscriptionStatus: vi.fn(),
@@ -386,15 +387,15 @@ describe("Billing Routes", () => {
       expect(body.status).toBe("active");
     });
 
-    it("returns 402 when org has no subscription", async () => {
-      (subService.getSubscriptionStatus as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+    it("returns 404 when org has no subscription", async () => {
+      (subService.getSubscriptionStatus as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new NotFoundError("Subscription", "org-001"));
 
       const app = mountApp();
       const env = createTestEnv();
       const headers = await createAuthHeaders({ role: "admin", mfa_verified: true });
       const res = await app.request("/api/billing/subscription", { headers }, env);
 
-      expect(res.status).toBe(402);
+      expect(res.status).toBe(404);
       const body = (await res.json()) as { error: string };
       expect(body.error).toContain("No subscription found");
     });

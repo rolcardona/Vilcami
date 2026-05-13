@@ -10,6 +10,7 @@ import { authMiddleware, orgScopingMiddleware } from "../middleware/auth.middlew
 import { checkoutRequestValidator, paymentQueryValidator } from "../validators/billing.validator";
 import { createPaymentLink } from "../adapters/wompi-adapter";
 import { getSubscriptionStatus } from "../services/subscription.service";
+import { NotFoundError } from "../errors/not-found.error";
 import { PLAN_FEATURES } from "../services/plan-feature.service";
 import { getDrizzleDb } from "../utils/db.util";
 import { payments } from "../schema/payments";
@@ -104,11 +105,11 @@ billingRoutes.get("/subscription", async (c) => {
   try {
     const db = getDrizzleDb(c.env);
     const subscription = await getSubscriptionStatus(db, organizationId);
-    if (!subscription) {
-      return c.json({ error: "No subscription found for organization" }, 402);
-    }
     return c.json(subscription);
   } catch (error) {
+    if (error instanceof NotFoundError) {
+      return c.json({ error: "No subscription found for organization" }, 404);
+    }
     const message = error instanceof Error ? error.message : "Failed to fetch subscription";
     return c.json({ error: message }, 500);
   }

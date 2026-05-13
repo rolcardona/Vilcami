@@ -8,6 +8,7 @@ import { eq, sql } from "drizzle-orm";
 import { deviceSubscriptions, subscriptionPlans, devices } from "../schema/index";
 import type { SubscriptionStatus, SubscriptionResponse, PlanName } from "../types/billing.types";
 import { getDeviceLimit } from "./plan-feature.service";
+import { NotFoundError } from "../errors/not-found.error";
 
 type DrizzleDb = ReturnType<typeof import("../utils/db.util").getDrizzleDb>;
 
@@ -50,13 +51,16 @@ async function updateSubStatus(db: DrizzleDb, organizationId: string, status: Su
 }
 
 // ---------------------------------------------------------------------------
-// getSubscriptionStatus — returns current org subscription details, or null
+// getSubscriptionStatus — returns current org subscription details.
+// Throws NotFoundError when no subscription exists for the org.
 // ---------------------------------------------------------------------------
 export async function getSubscriptionStatus(
   db: DrizzleDb, organizationId: string,
-): Promise<SubscriptionResponse | null> {
+): Promise<SubscriptionResponse> {
   const sub = await findOrgSubscription(db, organizationId);
-  if (!sub) return null;
+  if (!sub) {
+    throw new NotFoundError("Subscription", organizationId);
+  }
 
   const planRow = await db.select({ name: subscriptionPlans.name })
     .from(subscriptionPlans)
@@ -65,6 +69,11 @@ export async function getSubscriptionStatus(
   const planName: PlanName = sub.status === "trial" ? "trial" : mapPlanName(planRow?.name ?? null);
   const deviceCountRow = await db.select({ count: sql<number>`count(*)`.as("count") })
     .from(devices).where(eq(devices.organizationId, organizationId)).all();
+
+  // currentPeriodStart: for trial, fall back to trialStartsAt; for paid, use currentPeriodStart only
+  const periodStart = sub.status === "trial"
+    ? (toDateMs(sub.currentPeriodStart) || toDateMs(sub.trialStartsAt))
+    : toDateMs(sub.currentPeriodStart);
 
   // currentPeriodEnd: for trial, fall back to trialEndsAt; for paid, use currentPeriodEnd only
   const periodEnd = sub.status === "trial"
@@ -75,7 +84,7 @@ export async function getSubscriptionStatus(
     organizationId,
     planName,
     status: sub.status as SubscriptionStatus,
-    currentPeriodStart: toDateMs(sub.currentPeriodStart) || toDateMs(sub.trialStartsAt),
+    currentPeriodStart: periodStart,
     currentPeriodEnd: periodEnd,
     deviceCount: deviceCountRow[0]?.count ?? 0,
     maxDevices: getDeviceLimit(planName),
@@ -131,12 +140,13 @@ export async function transitionSubscriptionStatus(
 }
 
 // ---------------------------------------------------------------------------
-// checkAndTransitionSubscription — DEPRECATED: use processOrganizationBilling
+// checkAndTransitionSubscription — DEPRECATED: DO NOT USE
 // ---------------------------------------------------------------------------
 /**
- * @deprecated Use `processOrganizationBilling` from billing-cron.service.ts instead.
- * This function duplicates time-based transition logic that is now canonically
- * handled by the billing cron. Kept for backwards compatibility with existing tests.
+ * @deprecated DO NOT USE — this function has incorrect time-based transition
+ * logic and is superseded by `processOrganizationBilling` from billing-cron.service.ts.
+ * It exists solely to avoid breaking existing tests that reference it.
+ * Any new code MUST use `processOrganizationBilling` instead.
  */
 export async function checkAndTransitionSubscription(
   db: DrizzleDb, organizationId: string, now: number,
