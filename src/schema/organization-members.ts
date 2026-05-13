@@ -16,6 +16,7 @@ export const organizationMembers = sqliteTable("organization_members", {
     .references(() => organizations.id),
   supabaseUserId: text("supabase_user_id").notNull(),
   role: organizationMemberRoleEnum.notNull(),
+  permissions: text("permissions").notNull().default("[]"),
   status: organizationMemberStatusEnum.notNull().default("active"),
   invitedAt: integer("invited_at", { mode: "timestamp" }),
   joinedAt: integer("joined_at", { mode: "timestamp" }),

@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { Env } from "../types/env";
 import { authMiddleware, orgScopingMiddleware } from "../middleware/auth.middleware";
 import { requireFeature } from "../middleware/subscription.middleware";
+import { requirePermission } from "../middleware/permission.middleware";
 import type { JwtPayload } from "../auth/jwt-verifier";
 import {
   listAlertsValidator,
@@ -56,7 +57,7 @@ alertRoutes.get("/active/count", async (c) => {
 // GET /:alertId — Get alert details with AI context parsed
 // ---------------------------------------------------------------------------
 alertRoutes.get("/:alertId", async (c) => {
-  const alertId = c.req.param("alertId");
+  const alertId = c.req.param("alertId")!;
   const organizationFilter = c.get("organizationFilter") as string | null;
   const result = await alertService.getAlertById(c.env, alertId, organizationFilter);
 
@@ -80,8 +81,8 @@ alertRoutes.get("/:alertId", async (c) => {
 // ---------------------------------------------------------------------------
 // PATCH /:alertId/acknowledge — Acknowledge alert
 // ---------------------------------------------------------------------------
-alertRoutes.patch("/:alertId/acknowledge", async (c) => {
-  const alertId = c.req.param("alertId");
+alertRoutes.patch("/:alertId/acknowledge", requirePermission("alerts:acknowledge"), async (c) => {
+  const alertId = c.req.param("alertId")!;
   const organizationFilter = c.get("organizationFilter") as string | null;
   const jwtPayload = c.get("jwtPayload") as JwtPayload;
   const requestBody = await c.req.json();
@@ -106,8 +107,8 @@ alertRoutes.patch("/:alertId/acknowledge", async (c) => {
 // ---------------------------------------------------------------------------
 // PATCH /:alertId/resolve — Resolve alert
 // ---------------------------------------------------------------------------
-alertRoutes.patch("/:alertId/resolve", async (c) => {
-  const alertId = c.req.param("alertId");
+alertRoutes.patch("/:alertId/resolve", requirePermission("alerts:resolve"), async (c) => {
+  const alertId = c.req.param("alertId")!;
   const organizationFilter = c.get("organizationFilter") as string | null;
   const jwtPayload = c.get("jwtPayload") as JwtPayload;
   const requestBody = await c.req.json();
@@ -132,8 +133,8 @@ alertRoutes.patch("/:alertId/resolve", async (c) => {
 // ---------------------------------------------------------------------------
 // POST /:alertId/shelve — Temporarily shelve alert (requires advanced_escalation feature)
 // ---------------------------------------------------------------------------
-alertRoutes.post("/:alertId/shelve", requireFeature('advanced_escalation'), async (c) => {
-  const alertId = c.req.param("alertId") as string;
+alertRoutes.post("/:alertId/shelve", requireFeature('advanced_escalation'), requirePermission("alerts:shelve"), async (c) => {
+  const alertId = c.req.param("alertId")!;
   const organizationFilter = c.get("organizationFilter") as string | null;
   const jwtPayload = c.get("jwtPayload") as JwtPayload;
   const requestBody = await c.req.json();

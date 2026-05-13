@@ -6,6 +6,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { SubscriptionStatus } from "../../types/billing.types";
+import type { DrizzleD1Database } from "drizzle-orm/d1";
 
 // ---------------------------------------------------------------------------
 // Mock Drizzle DB — chainable query builder pattern
@@ -29,6 +30,7 @@ function createMockDb() {
 }
 
 let mockDb: ReturnType<typeof createMockDb>;
+const db = () => mockDb as unknown as DrizzleD1Database<Record<string, never>>;
 
 vi.mock("../../schema/index", () => ({
   deviceSubscriptions: {
@@ -131,7 +133,7 @@ describe("subscription.service", () => {
       mockDb.get.mockResolvedValueOnce({ name: "Starter" }); // plan name
       mockDb.all.mockResolvedValueOnce([{ count: 2 }]); // device count
 
-      const result = await getSubscriptionStatus(mockDb, ORG_ID);
+      const result = await getSubscriptionStatus(db(), ORG_ID);
 
       expect(result.organizationId).toBe(ORG_ID);
       expect(result.status).toBe("active");
@@ -145,7 +147,7 @@ describe("subscription.service", () => {
       mockDb.get.mockResolvedValueOnce({ name: "Starter" });
       mockDb.all.mockResolvedValueOnce([{ count: 1 }]);
 
-      const result = await getSubscriptionStatus(mockDb, ORG_ID);
+      const result = await getSubscriptionStatus(db(), ORG_ID);
 
       expect(result.status).toBe("trial");
       expect(result.maxDevices).toBe(3);
@@ -161,7 +163,7 @@ describe("subscription.service", () => {
       mockDb.get.mockResolvedValueOnce({ name: "Starter" });
       mockDb.all.mockResolvedValueOnce([{ count: 5 }]);
 
-      const result = await getSubscriptionStatus(mockDb, ORG_ID);
+      const result = await getSubscriptionStatus(db(), ORG_ID);
 
       expect(result.status).toBe("suspended");
     });
@@ -177,7 +179,7 @@ describe("subscription.service", () => {
       mockDb.get.mockResolvedValueOnce({ name: "Starter" });
       mockDb.all.mockResolvedValueOnce([{ count: 2 }]);
 
-      const result = await getSubscriptionStatus(mockDb, ORG_ID);
+      const result = await getSubscriptionStatus(db(), ORG_ID);
 
       expect(result).not.toBeNull();
       // Must be currentPeriodEnd (March 1), NOT trialEndsAt (Jan 31)
@@ -195,7 +197,7 @@ describe("subscription.service", () => {
       mockDb.get.mockResolvedValueOnce({ name: "Starter" });
       mockDb.all.mockResolvedValueOnce([{ count: 2 }]);
 
-      const result = await getSubscriptionStatus(mockDb, ORG_ID);
+      const result = await getSubscriptionStatus(db(), ORG_ID);
 
       expect(result).not.toBeNull();
       // For non-trial, should return 0, not fall back to trialEndsAt
@@ -213,7 +215,7 @@ describe("subscription.service", () => {
       mockDb.get.mockResolvedValueOnce({ name: "Starter" });
       mockDb.all.mockResolvedValueOnce([{ count: 2 }]);
 
-      const result = await getSubscriptionStatus(mockDb, ORG_ID);
+      const result = await getSubscriptionStatus(db(), ORG_ID);
 
       expect(result).not.toBeNull();
       // Must be currentPeriodStart (Feb 1), NOT trialStartsAt (Jan 1)
@@ -231,7 +233,7 @@ describe("subscription.service", () => {
       mockDb.get.mockResolvedValueOnce({ name: "Starter" });
       mockDb.all.mockResolvedValueOnce([{ count: 2 }]);
 
-      const result = await getSubscriptionStatus(mockDb, ORG_ID);
+      const result = await getSubscriptionStatus(db(), ORG_ID);
 
       expect(result).not.toBeNull();
       // For non-trial, should return 0, not fall back to trialStartsAt
@@ -250,7 +252,7 @@ describe("subscription.service", () => {
       mockDb.get.mockResolvedValueOnce({ name: "Starter" });
       mockDb.all.mockResolvedValueOnce([{ count: 1 }]);
 
-      const result = await getSubscriptionStatus(mockDb, ORG_ID);
+      const result = await getSubscriptionStatus(db(), ORG_ID);
 
       expect(result).not.toBeNull();
       expect(result!.status).toBe("trial");
@@ -270,7 +272,7 @@ describe("subscription.service", () => {
       mockDb.get.mockResolvedValueOnce({ name: "Starter" });
       mockDb.all.mockResolvedValueOnce([{ count: 1 }]);
 
-      const result = await getSubscriptionStatus(mockDb, ORG_ID);
+      const result = await getSubscriptionStatus(db(), ORG_ID);
 
       expect(result).not.toBeNull();
       expect(result!.status).toBe("trial");
@@ -282,7 +284,7 @@ describe("subscription.service", () => {
       mockDb.get.mockResolvedValueOnce(null);
 
       try {
-        await getSubscriptionStatus(mockDb, ORG_ID);
+        await getSubscriptionStatus(db(), ORG_ID);
         expect.fail("Expected NotFoundError to be thrown");
       } catch (error) {
         expect(error).toBeInstanceOf(NotFoundError);
@@ -301,7 +303,7 @@ describe("subscription.service", () => {
       mockDb.get.mockResolvedValueOnce(trialRow);
       mockDb.all.mockResolvedValueOnce([trialRow]);
 
-      const result = await activateSubscription(mockDb, ORG_ID, PLAN_ID, PAYMENT_ID);
+      const result = await activateSubscription(db(), ORG_ID, PLAN_ID, PAYMENT_ID);
 
       expect(result.status).toBe("active");
     });
@@ -315,7 +317,7 @@ describe("subscription.service", () => {
       mockDb.get.mockResolvedValueOnce(pastDueRow);
       mockDb.all.mockResolvedValueOnce([pastDueRow]);
 
-      const result = await activateSubscription(mockDb, ORG_ID, PLAN_ID, PAYMENT_ID);
+      const result = await activateSubscription(db(), ORG_ID, PLAN_ID, PAYMENT_ID);
 
       expect(result.status).toBe("active");
     });
@@ -323,7 +325,7 @@ describe("subscription.service", () => {
     it("creates a new subscription when none exists", async () => {
       mockDb.get.mockResolvedValueOnce(null);
 
-      const result = await activateSubscription(mockDb, ORG_ID, PLAN_ID, PAYMENT_ID);
+      const result = await activateSubscription(db(), ORG_ID, PLAN_ID, PAYMENT_ID);
 
       expect(result.status).toBe("active");
     });
@@ -337,7 +339,7 @@ describe("subscription.service", () => {
       mockDb.get.mockResolvedValueOnce(cancelledRow);
       mockDb.all.mockResolvedValueOnce([cancelledRow]);
 
-      const result = await activateSubscription(mockDb, ORG_ID, PLAN_ID, PAYMENT_ID);
+      const result = await activateSubscription(db(), ORG_ID, PLAN_ID, PAYMENT_ID);
 
       expect(result.status).toBe("active");
     });
@@ -351,7 +353,7 @@ describe("subscription.service", () => {
       mockDb.get.mockResolvedValueOnce(activeRow);
 
       await expect(
-        activateSubscription(mockDb, ORG_ID, PLAN_ID, PAYMENT_ID),
+        activateSubscription(db(), ORG_ID, PLAN_ID, PAYMENT_ID),
       ).rejects.toThrow("Invalid subscription transition: active → active");
     });
   });
@@ -376,7 +378,7 @@ describe("subscription.service", () => {
         const subRow = makeSubscriptionRow({ status: from });
         mockDb.get.mockResolvedValueOnce(subRow);
 
-        const result = await transitionSubscriptionStatus(mockDb, ORG_ID, to);
+        const result = await transitionSubscriptionStatus(db(), ORG_ID, to);
 
         expect(result.status).toBe(to);
       });
@@ -406,7 +408,7 @@ describe("subscription.service", () => {
         mockDb.get.mockResolvedValueOnce(subRow);
 
         await expect(
-          transitionSubscriptionStatus(mockDb, ORG_ID, to),
+          transitionSubscriptionStatus(db(), ORG_ID, to),
         ).rejects.toThrow("Invalid subscription transition");
       });
     }
@@ -415,7 +417,7 @@ describe("subscription.service", () => {
       mockDb.get.mockResolvedValueOnce(null);
 
       await expect(
-        transitionSubscriptionStatus(mockDb, ORG_ID, "active"),
+        transitionSubscriptionStatus(db(), ORG_ID, "active"),
       ).rejects.toThrow("No subscription found");
     });
   });
@@ -437,7 +439,7 @@ describe("subscription.service", () => {
       });
       mockDb.get.mockResolvedValueOnce(trialRow);
 
-      const result = await checkAndTransitionSubscription(mockDb, ORG_ID, now);
+      const result = await checkAndTransitionSubscription(db(), ORG_ID, now);
 
       expect(result.status).toBe("suspended");
     });
@@ -455,7 +457,7 @@ describe("subscription.service", () => {
       });
       mockDb.get.mockResolvedValueOnce(trialRow);
 
-      const result = await checkAndTransitionSubscription(mockDb, ORG_ID, now);
+      const result = await checkAndTransitionSubscription(db(), ORG_ID, now);
 
       expect(result.status).toBe("trial");
     });
@@ -473,7 +475,7 @@ describe("subscription.service", () => {
       });
       mockDb.get.mockResolvedValueOnce(trialRow);
 
-      const result = await checkAndTransitionSubscription(mockDb, ORG_ID, now);
+      const result = await checkAndTransitionSubscription(db(), ORG_ID, now);
 
       expect(result.status).toBe("trial");
     });
@@ -489,7 +491,7 @@ describe("subscription.service", () => {
       });
       mockDb.get.mockResolvedValueOnce(activeRow);
 
-      const result = await checkAndTransitionSubscription(mockDb, ORG_ID, now);
+      const result = await checkAndTransitionSubscription(db(), ORG_ID, now);
 
       expect(result.status).toBe("past_due");
     });
@@ -505,7 +507,7 @@ describe("subscription.service", () => {
       });
       mockDb.get.mockResolvedValueOnce(activeRow);
 
-      const result = await checkAndTransitionSubscription(mockDb, ORG_ID, now);
+      const result = await checkAndTransitionSubscription(db(), ORG_ID, now);
 
       expect(result.status).toBe("active");
     });
@@ -520,7 +522,7 @@ describe("subscription.service", () => {
       });
       mockDb.get.mockResolvedValueOnce(pastDueRow);
 
-      const result = await checkAndTransitionSubscription(mockDb, ORG_ID, now);
+      const result = await checkAndTransitionSubscription(db(), ORG_ID, now);
 
       expect(result.status).toBe("suspended");
     });
@@ -535,7 +537,7 @@ describe("subscription.service", () => {
       });
       mockDb.get.mockResolvedValueOnce(pastDueRow);
 
-      const result = await checkAndTransitionSubscription(mockDb, ORG_ID, now);
+      const result = await checkAndTransitionSubscription(db(), ORG_ID, now);
 
       expect(result.status).toBe("past_due");
     });
@@ -551,7 +553,7 @@ describe("subscription.service", () => {
       });
       mockDb.get.mockResolvedValueOnce(suspendedRow);
 
-      const result = await checkAndTransitionSubscription(mockDb, ORG_ID, now);
+      const result = await checkAndTransitionSubscription(db(), ORG_ID, now);
 
       expect(result.status).toBe("cancelled");
     });
@@ -567,7 +569,7 @@ describe("subscription.service", () => {
       });
       mockDb.get.mockResolvedValueOnce(suspendedRow);
 
-      const result = await checkAndTransitionSubscription(mockDb, ORG_ID, now);
+      const result = await checkAndTransitionSubscription(db(), ORG_ID, now);
 
       expect(result.status).toBe("suspended");
     });
@@ -581,7 +583,7 @@ describe("subscription.service", () => {
       });
       mockDb.get.mockResolvedValueOnce(activeRow);
 
-      const result = await checkAndTransitionSubscription(mockDb, ORG_ID, now);
+      const result = await checkAndTransitionSubscription(db(), ORG_ID, now);
 
       expect(result.status).toBe("active");
     });
@@ -589,7 +591,7 @@ describe("subscription.service", () => {
     it("returns cancelled status when no subscription found", async () => {
       mockDb.get.mockResolvedValueOnce(null);
 
-      const result = await checkAndTransitionSubscription(mockDb, ORG_ID, Date.now());
+      const result = await checkAndTransitionSubscription(db(), ORG_ID, Date.now());
 
       expect(result.status).toBe("cancelled");
     });
@@ -603,7 +605,7 @@ describe("subscription.service", () => {
       const subRow = makeSubscriptionRow({ status: "trial" });
       mockDb.get.mockResolvedValueOnce(subRow);
 
-      const planName = await getOrgPlanName(mockDb, ORG_ID);
+      const planName = await getOrgPlanName(db(), ORG_ID);
 
       expect(planName).toBe("trial");
     });
@@ -613,7 +615,7 @@ describe("subscription.service", () => {
       mockDb.get.mockResolvedValueOnce(subRow);
       mockDb.get.mockResolvedValueOnce({ name: "Professional" });
 
-      const planName = await getOrgPlanName(mockDb, ORG_ID);
+      const planName = await getOrgPlanName(db(), ORG_ID);
 
       expect(planName).toBe("professional");
     });
@@ -623,7 +625,7 @@ describe("subscription.service", () => {
       mockDb.get.mockResolvedValueOnce(subRow);
       mockDb.get.mockResolvedValueOnce({ name: "Starter" });
 
-      const planName = await getOrgPlanName(mockDb, ORG_ID);
+      const planName = await getOrgPlanName(db(), ORG_ID);
 
       expect(planName).toBe("starter");
     });
@@ -631,7 +633,7 @@ describe("subscription.service", () => {
     it("throws when no subscription found", async () => {
       mockDb.get.mockResolvedValueOnce(null);
 
-      await expect(getOrgPlanName(mockDb, ORG_ID))
+      await expect(getOrgPlanName(db(), ORG_ID))
         .rejects.toThrow("No subscription found");
     });
   });

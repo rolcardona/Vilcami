@@ -25,6 +25,7 @@ function createTestEnv(overrides?: { orgIntegrityKey?: string }): Env {
     WOMPI_PUBLIC_KEY: "test-pub-key",
     WOMPI_EVENT_INTEGRITY_KEY: "test-integrity-key",
     AI: { run: vi.fn() } as unknown as Ai,
+    FRONTEND_URL: "http://localhost:5173",
   };
 }
 

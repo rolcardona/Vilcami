@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Hono } from "hono";
 import type { Env } from "../../types/env";
 import type { SubscriptionStatus, SubscriptionResponse, FeatureName } from "../../types/billing.types";
+import type { DrizzleD1Database } from "drizzle-orm/d1";
 
 // ---------------------------------------------------------------------------
 // Mock Drizzle DB — chainable query builder
@@ -24,6 +25,7 @@ function createMockDb() {
 }
 
 let mockDb: ReturnType<typeof createMockDb>;
+const db = () => mockDb as unknown as DrizzleD1Database<Record<string, never>>;
 
 // ---------------------------------------------------------------------------
 // Mocks — plan-feature uses importOriginal so real PLAN_FEATURES is available
@@ -92,6 +94,7 @@ function createTestEnv(): Env {
     WOMPI_BASE_URL: "https://sandbox.wompi.co/v1", WOMPI_PUBLIC_KEY: "test-pub-key",
     WOMPI_EVENT_INTEGRITY_KEY: "test-integrity-key",
     AI: { run: vi.fn() } as unknown as Ai,
+    FRONTEND_URL: "http://localhost:5173",
   };
 }
 
@@ -107,20 +110,20 @@ describe("Subscription service edge cases", () => {
       vi.mocked(transitionSubscriptionStatus).mockRejectedValueOnce(
         new Error(`Invalid subscription transition: cancelled → ${target}`),
       );
-      await expect(transitionSubscriptionStatus(mockDb, ORG_EC, target))
+      await expect(transitionSubscriptionStatus(db(), ORG_EC, target))
         .rejects.toThrow("Invalid subscription transition: cancelled");
     }
   });
 
   it("activateSubscription returns active for already-active subscription (idempotent)", async () => {
     vi.mocked(activateSubscription).mockResolvedValueOnce({ status: "active" });
-    const result = await activateSubscription(mockDb, ORG_EC, PLAN_ID, PAYMENT_ID);
+    const result = await activateSubscription(db(), ORG_EC, PLAN_ID, PAYMENT_ID);
     expect(result.status).toBe("active");
   });
 
   it("getSubscriptionStatus throws NotFoundError for org with no subscription row", async () => {
     vi.mocked(getSubscriptionStatus).mockRejectedValueOnce(new NotFoundError("Subscription", ORG_EC));
-    await expect(getSubscriptionStatus(mockDb, ORG_EC)).rejects.toThrow("Subscription not found");
+    await expect(getSubscriptionStatus(db(), ORG_EC)).rejects.toThrow("Subscription not found");
   });
 });
 

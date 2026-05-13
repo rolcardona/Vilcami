@@ -7,6 +7,7 @@ import { Hono } from "hono";
 import type { Env } from "../types/env";
 import type { JwtPayload } from "../auth/jwt-verifier";
 import { authMiddleware, orgScopingMiddleware } from "../middleware/auth.middleware";
+import { requirePermission } from "../middleware/permission.middleware";
 import { checkoutRequestValidator, paymentQueryValidator } from "../validators/billing.validator";
 import { createPaymentLink } from "../adapters/wompi-adapter";
 import { getSubscriptionStatus } from "../services/subscription.service";
@@ -26,7 +27,7 @@ billingRoutes.use("*", orgScopingMiddleware);
 // ---------------------------------------------------------------------------
 // POST /checkout — Generate Wompi payment link for plan purchase
 // ---------------------------------------------------------------------------
-billingRoutes.post("/checkout", async (c) => {
+billingRoutes.post("/checkout", requirePermission("billing:manage"), async (c) => {
   const jwtPayload = c.get("jwtPayload") as JwtPayload;
   const organizationId = jwtPayload.org_id;
   if (!organizationId) {

@@ -69,6 +69,7 @@ function mockEnv(options?: KvOptions): Env {
 			WOMPI_PUBLIC_KEY: "test-pub-key",
 			WOMPI_EVENT_INTEGRITY_KEY: "test-integrity-key",
 		AI: { run: vi.fn() } as unknown as Ai,
+		FRONTEND_URL: "http://localhost:5173",
 	};
 }
 
@@ -118,7 +119,10 @@ describe("Telemetry Routes", () => {
 
 	async function setupApp(): Promise<{ app: Hono<{ Bindings: Env }>; env: Env }> {
 		const { telemetryRoutes } = await import("../../routes/telemetry.routes");
+		const { authMiddleware, orgScopingMiddleware } = await import("../../middleware/auth.middleware");
 		const app = new Hono<{ Bindings: Env }>();
+		app.use("/api/telemetry/*", authMiddleware);
+		app.use("/api/telemetry/*", orgScopingMiddleware);
 		app.route("/api/telemetry", telemetryRoutes);
 		return { app, env: mockEnv() };
 	}
@@ -149,7 +153,7 @@ describe("Telemetry Routes", () => {
 		const fakeId = "550e8400-e29b-41d4-a716-446655440000";
 		mockIngest.mockResolvedValue({ success: true, telemetryId: fakeId });
 		const { app, env } = await setupApp();
-		const headers = await createAuthHeaders({ org_id: "org-001" });
+		const headers = await createAuthHeaders({ org_id: "org-001", role: "admin", mfa_verified: true });
 
 		const res = await app.request("/api/telemetry/ingest", {
 			method: "POST",
@@ -167,7 +171,7 @@ describe("Telemetry Routes", () => {
 	it("POST /ingest invalid payload => 400 with error", async () => {
 		mockIngest.mockResolvedValue({ success: false, error: "Validation failed" });
 		const { app, env } = await setupApp();
-		const headers = await createAuthHeaders();
+		const headers = await createAuthHeaders({ role: "admin", mfa_verified: true });
 
 		const res = await app.request("/api/telemetry/ingest", {
 			method: "POST",
@@ -187,7 +191,7 @@ describe("Telemetry Routes", () => {
 		];
 		mockBulk.mockResolvedValue(results);
 		const { app, env } = await setupApp();
-		const headers = await createAuthHeaders({ org_id: "org-001" });
+		const headers = await createAuthHeaders({ org_id: "org-001", role: "admin", mfa_verified: true });
 
 		const res = await app.request("/api/telemetry/ingest/bulk", {
 			method: "POST",

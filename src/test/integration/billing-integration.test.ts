@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Hono } from "hono";
 import type { Env } from "../../types/env";
 import type { SubscriptionStatus, SubscriptionResponse, FeatureName } from "../../types/billing.types";
+import type { DrizzleD1Database } from "drizzle-orm/d1";
 
 // ---------------------------------------------------------------------------
 // Mock Drizzle DB — chainable query builder
@@ -31,12 +32,13 @@ function createMockDb() {
 }
 
 let mockDb: ReturnType<typeof createMockDb>;
+const db = () => mockDb as unknown as DrizzleD1Database<Record<string, never>>;
 
 // ---------------------------------------------------------------------------
 // Mocks — hoisted module dependencies
 // ---------------------------------------------------------------------------
 vi.mock("../../utils/db.util", () => ({
-  getDrizzleDb: vi.fn(() => mockDb),
+  getDrizzleDb: vi.fn(() => db()),
 }));
 
 vi.mock("../../services/subscription.service", () => ({
@@ -108,6 +110,7 @@ function createTestEnv(): Env {
     WOMPI_PUBLIC_KEY: "test-pub-key",
     WOMPI_EVENT_INTEGRITY_KEY: "test-integrity-key",
     AI: { run: vi.fn() } as unknown as Ai,
+    FRONTEND_URL: "http://localhost:5173",
   };
 }
 
@@ -133,7 +136,7 @@ describe("Full subscription lifecycle: trial → active → past_due → suspend
     vi.mocked(getSubscriptionStatus).mockResolvedValueOnce(trialSub);
     vi.mocked(transitionSubscriptionStatus).mockResolvedValueOnce({ status: "active" });
 
-    const activeResult = await transitionSubscriptionStatus(mockDb, ORG_ID, "active");
+    const activeResult = await transitionSubscriptionStatus(db(), ORG_ID, "active");
     expect(activeResult.status).toBe("active");
 
     // Step 2: active → past_due (period ended)
@@ -141,7 +144,7 @@ describe("Full subscription lifecycle: trial → active → past_due → suspend
     vi.mocked(getSubscriptionStatus).mockResolvedValueOnce(activeSub);
     vi.mocked(transitionSubscriptionStatus).mockResolvedValueOnce({ status: "past_due" });
 
-    const pastDueResult = await transitionSubscriptionStatus(mockDb, ORG_ID, "past_due");
+    const pastDueResult = await transitionSubscriptionStatus(db(), ORG_ID, "past_due");
     expect(pastDueResult.status).toBe("past_due");
 
     // Step 3: past_due → suspended (grace period expired)
@@ -149,7 +152,7 @@ describe("Full subscription lifecycle: trial → active → past_due → suspend
     vi.mocked(getSubscriptionStatus).mockResolvedValueOnce(pastDueSub);
     vi.mocked(transitionSubscriptionStatus).mockResolvedValueOnce({ status: "suspended" });
 
-    const suspendedResult = await transitionSubscriptionStatus(mockDb, ORG_ID, "suspended");
+    const suspendedResult = await transitionSubscriptionStatus(db(), ORG_ID, "suspended");
     expect(suspendedResult.status).toBe("suspended");
 
     // Step 4: suspended → cancelled (30 days past)
@@ -157,7 +160,7 @@ describe("Full subscription lifecycle: trial → active → past_due → suspend
     vi.mocked(getSubscriptionStatus).mockResolvedValueOnce(suspendedSub);
     vi.mocked(transitionSubscriptionStatus).mockResolvedValueOnce({ status: "cancelled" });
 
-    const cancelledResult = await transitionSubscriptionStatus(mockDb, ORG_ID, "cancelled");
+    const cancelledResult = await transitionSubscriptionStatus(db(), ORG_ID, "cancelled");
     expect(cancelledResult.status).toBe("cancelled");
   });
 });

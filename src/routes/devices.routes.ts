@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type { Env } from "../types/env";
 import { authMiddleware, orgScopingMiddleware } from "../middleware/auth.middleware";
 import { requireSubscription, requireDeviceQuota } from "../middleware/subscription.middleware";
+import { requirePermission } from "../middleware/permission.middleware";
 import type { JwtPayload } from "../auth/jwt-verifier";
 import * as deviceManagementService from "../services/device-management.service";
 
@@ -38,7 +39,7 @@ deviceRoutes.get("/:deviceId", async (c) => {
 // -------------------------------------------------------------------------
 // POST / — create a new device
 // -------------------------------------------------------------------------
-deviceRoutes.post("/", requireSubscription(), requireDeviceQuota(), async (c) => {
+deviceRoutes.post("/", requireSubscription(), requireDeviceQuota(), requirePermission("devices:create"), async (c) => {
   const jwtPayload = c.get("jwtPayload") as JwtPayload;
   if (!jwtPayload.org_id) {
     return c.json({ error: "User must belong to an organization to create devices" }, 403);
@@ -61,8 +62,8 @@ deviceRoutes.post("/", requireSubscription(), requireDeviceQuota(), async (c) =>
 // -------------------------------------------------------------------------
 // PATCH /:deviceId — update an existing device
 // -------------------------------------------------------------------------
-deviceRoutes.patch("/:deviceId", async (c) => {
-  const deviceId = c.req.param("deviceId");
+deviceRoutes.patch("/:deviceId", requirePermission("devices:update"), async (c) => {
+  const deviceId = c.req.param("deviceId")!;
   const organizationFilter = c.get("organizationFilter");
   const requestBody = await c.req.json();
   const result = await deviceManagementService.updateDevice(
@@ -83,8 +84,8 @@ deviceRoutes.patch("/:deviceId", async (c) => {
 // -------------------------------------------------------------------------
 // DELETE /:deviceId — delete a device
 // -------------------------------------------------------------------------
-deviceRoutes.delete("/:deviceId", async (c) => {
-  const deviceId = c.req.param("deviceId");
+deviceRoutes.delete("/:deviceId", requirePermission("devices:delete"), async (c) => {
+  const deviceId = c.req.param("deviceId")!;
   const organizationFilter = c.get("organizationFilter");
   const result = await deviceManagementService.deleteDevice(
     c.env,

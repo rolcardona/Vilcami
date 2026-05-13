@@ -6,6 +6,7 @@ import { telemetryRoutes } from "./routes/telemetry.routes";
 import { alertRoutes, pushSubscriptionRoutes } from "./routes/alerts.routes";
 import { billingRoutes } from "./routes/billing.routes";
 import { webhookRoutes } from "./routes/webhook.routes";
+import { memberRoutes } from "./routes/members.routes";
 import {
   computeHourlyAggregations,
   computeDailySummaries,
@@ -59,6 +60,7 @@ app.route("/api/alerts", alertRoutes);
 app.route("/api/push-subscriptions", pushSubscriptionRoutes);
 app.route("/api/billing", billingRoutes);
 app.route("/api/webhooks", webhookRoutes);
+app.route("/api/members", memberRoutes);
 
 // ---------------------------------------------------------------------------
 // Cron: hourly aggregation (KV raw telemetry → D1 hourly_averages + daily_summaries)

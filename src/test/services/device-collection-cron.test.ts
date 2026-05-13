@@ -33,7 +33,7 @@ function buildTelemetryReading(overrides?: Partial<DeviceTelemetry>): DeviceTele
 }
 
 function buildTestEnv(): Env {
-  return { DB: {} as D1Database, TELEMETRY_RAW: {} as KVNamespace, SECRETS_VAULT: {} as KVNamespace, THROTTLE_KV: {} as KVNamespace, ENCRYPTION_KEY: "test-key", SUPABASE_URL: "https://test-project.supabase.co", SUPABASE_ANON_KEY: "test-anon-key", WOMPI_BASE_URL: "https://sandbox.wompi.co/v1", WOMPI_PUBLIC_KEY: "test-pub-key", WOMPI_EVENT_INTEGRITY_KEY: "test-integrity-key", AI: { run: vi.fn() } as unknown as Ai } as Env;
+  return { DB: {} as D1Database, TELEMETRY_RAW: {} as KVNamespace, SECRETS_VAULT: {} as KVNamespace, THROTTLE_KV: {} as KVNamespace, ENCRYPTION_KEY: "test-key", SUPABASE_URL: "https://test-project.supabase.co", SUPABASE_ANON_KEY: "test-anon-key", WOMPI_BASE_URL: "https://sandbox.wompi.co/v1", WOMPI_PUBLIC_KEY: "test-pub-key", WOMPI_EVENT_INTEGRITY_KEY: "test-integrity-key", AI: { run: vi.fn() } as unknown as Ai, FRONTEND_URL: "http://localhost:5173" } as Env;
 }
 
 // ---------------------------------------------------------------------------

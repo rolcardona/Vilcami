@@ -34,20 +34,9 @@ vi.mock("../../services/subscription.service", () => ({
 
 import { handleWebhookEvent } from "../../adapters/wompi-adapter";
 import type { WompiWebhookPayload } from "../../types/wompi";
+import type { Env } from "../../types/env";
 
-function createTestEnv(secretsVaultOverrides: Record<string, string> = {}): {
-  DB: D1Database;
-  TELEMETRY_RAW: KVNamespace;
-  SECRETS_VAULT: KVNamespace;
-  THROTTLE_KV: KVNamespace;
-  ENCRYPTION_KEY: string;
-  SUPABASE_URL: string;
-  SUPABASE_ANON_KEY: string;
-  WOMPI_BASE_URL: string;
-  WOMPI_PUBLIC_KEY: string;
-  WOMPI_EVENT_INTEGRITY_KEY: string;
-  AI: Ai;
-} {
+function createTestEnv(secretsVaultOverrides: Record<string, string> = {}): Env {
   const store = { ...secretsVaultOverrides };
   return {
     DB: {} as D1Database,
@@ -65,6 +54,7 @@ function createTestEnv(secretsVaultOverrides: Record<string, string> = {}): {
     WOMPI_PUBLIC_KEY: "test-pub-key",
     WOMPI_EVENT_INTEGRITY_KEY: "test-integrity-key",
     AI: { run: vi.fn() } as unknown as Ai,
+    FRONTEND_URL: "http://localhost:5173",
   };
 }
 
