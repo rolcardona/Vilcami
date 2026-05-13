@@ -58,51 +58,35 @@ export interface ThrottleResult {
 }
 
 // ---------------------------------------------------------------------------
-// checkThrottle — INTERNAL: reads KV throttle counter without modifying it.
-// Kept as a granular helper for read-only throttle queries if needed.
+// checkThrottle — DEPRECATED: use checkAndIncrementThrottle instead.
+// This wrapper delegates to checkAndIncrementThrottle to eliminate the
+// TOCTOU race window that existed when check and increment were separate.
+// NOTE: Unlike the original, this now increments the counter as a side effect.
 // ---------------------------------------------------------------------------
-async function checkThrottle(
+/** @deprecated Use checkAndIncrementThrottle for atomic check+increment. */
+export async function checkThrottle(
   kv: KVNamespace,
   organizationId: string,
   deviceId: string,
   planName: PlanName,
 ): Promise<ThrottleResult> {
-  const key = buildThrottleKey(organizationId, deviceId);
-  const maxAllowed = getReadingsPerHourLimit(planName);
-  const raw = await kv.get(key);
-
-  if (!raw) {
-    return { allowed: true, currentCount: 0, maxAllowed };
-  }
-
-  const parsed: { count: number; maxAllowed: number } = JSON.parse(raw);
-  const allowed = parsed.count < maxAllowed;
-  return { allowed, currentCount: parsed.count, maxAllowed };
+  return checkAndIncrementThrottle(kv, organizationId, deviceId, planName);
 }
 
 // ---------------------------------------------------------------------------
-// incrementThrottleCounter — INTERNAL: increments KV counter after accepting.
-// Kept as a granular helper for counter-only updates if needed.
+// incrementThrottleCounter — DEPRECATED: use checkAndIncrementThrottle instead.
+// This wrapper delegates to checkAndIncrementThrottle to eliminate the
+// TOCTOU race window that existed when check and increment were separate.
+// NOTE: Unlike the original, this will NOT increment when the limit is reached.
 // ---------------------------------------------------------------------------
-async function incrementThrottleCounter(
+/** @deprecated Use checkAndIncrementThrottle for atomic check+increment. */
+export async function incrementThrottleCounter(
   kv: KVNamespace,
   organizationId: string,
   deviceId: string,
   planName: PlanName,
 ): Promise<void> {
-  const key = buildThrottleKey(organizationId, deviceId);
-  const maxAllowed = getReadingsPerHourLimit(planName);
-  const raw = await kv.get(key);
-
-  let newCount: number;
-  if (!raw) {
-    newCount = 1;
-  } else {
-    const parsed: { count: number; maxAllowed: number } = JSON.parse(raw);
-    newCount = parsed.count + 1;
-  }
-
-  await kv.put(key, JSON.stringify({ count: newCount, maxAllowed }), { expirationTtl: 3600 });
+  await checkAndIncrementThrottle(kv, organizationId, deviceId, planName);
 }
 
 // ---------------------------------------------------------------------------

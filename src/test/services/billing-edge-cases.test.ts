@@ -149,7 +149,7 @@ describe("Usage tracking edge cases", () => {
 
     const result = await checkThrottle(kv, ORG_ID, DEVICE_ID, "starter");
     expect(result.allowed).toBe(true);
-    expect(result.currentCount).toBe(0);
+    expect(result.currentCount).toBe(1); // checkThrottle now delegates to atomic checkAndIncrementThrottle
 
     const currentKey = `throttle:${ORG_ID}:${DEVICE_ID}:${makeHourBucket(new Date())}`;
     expect(kv.store.has(currentKey)).toBe(true);
