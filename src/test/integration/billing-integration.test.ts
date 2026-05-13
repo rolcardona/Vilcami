@@ -50,6 +50,12 @@ vi.mock("../../services/plan-feature.service", () => ({
   getDeviceLimit: vi.fn(),
   getPlanFeatures: vi.fn(),
   hasFeature: vi.fn(),
+  PLAN_FEATURES: {
+    trial: { maxDevices: 3, readingsPerHour: 1, dataRetentionDays: 7, alertLevels: ["p0", "p1"], features: [] },
+    starter: { maxDevices: 5, readingsPerHour: 60, dataRetentionDays: 30, alertLevels: ["p0", "p1", "p2", "p3"], features: [] },
+    professional: { maxDevices: 15, readingsPerHour: 720, dataRetentionDays: 90, alertLevels: ["p0", "p1", "p2", "p3"], features: ["ai_diagnostic", "compliance_reports", "advanced_escalation"] },
+    enterprise: { maxDevices: Infinity, readingsPerHour: Infinity, dataRetentionDays: 365, alertLevels: ["p0", "p1", "p2", "p3"], features: ["ai_diagnostic", "compliance_reports", "advanced_escalation"] },
+  },
 }));
 
 vi.mock("../../schema/index", () => ({

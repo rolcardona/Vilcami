@@ -2,6 +2,7 @@
  * Webhook Routes — Phase 5 Wompi payment event receiver.
  * NO auth middleware — security comes from HMAC-SHA256 signature verification.
  * The organizationId is extracted from the Wompi payload data, not from JWT.
+ * Rate limiting: per-IP throttle via THROTTLE_KV (60 req/min/IP).
  */
 import { Hono } from "hono";
 import type { Env } from "../types/env";
@@ -11,12 +12,46 @@ import { verifyWebhookSignature, handleWebhookEvent } from "../adapters/wompi-ad
 /** Maximum age for webhook timestamps — 5 minutes to prevent replay attacks */
 const MAX_WEBHOOK_AGE_MS = 5 * 60 * 1000;
 
+/** Maximum webhook requests per IP per minute (rate limit) */
+const WEBHOOK_RATE_LIMIT_PER_IP_PER_MINUTE = 60;
+
+// ---------------------------------------------------------------------------
+// checkWebhookRateLimit — per-IP throttle using THROTTLE_KV
+// Returns true if the request is allowed, false if rate-limited.
+// Pattern mirrors checkAndIncrementThrottle from usage-tracking.service.ts.
+// ---------------------------------------------------------------------------
+async function checkWebhookRateLimit(
+  throttleKv: KVNamespace,
+  clientIp: string,
+): Promise<boolean> {
+  const now = new Date();
+  const minuteBucket = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(now.getUTCDate()).padStart(2, "0")}T${String(now.getUTCHours()).padStart(2, "0")}:${String(now.getUTCMinutes()).padStart(2, "0")}`;
+  const key = `webhook-rate:${clientIp}:${minuteBucket}`;
+
+  const raw = await throttleKv.get(key);
+  const currentCount = raw ? parseInt(raw, 10) : 0;
+
+  if (currentCount >= WEBHOOK_RATE_LIMIT_PER_IP_PER_MINUTE) {
+    return false;
+  }
+
+  await throttleKv.put(key, String(currentCount + 1), { expirationTtl: 120 });
+  return true;
+}
+
 export const webhookRoutes = new Hono<{ Bindings: Env }>();
 
 // ---------------------------------------------------------------------------
 // POST /wompi — Receive Wompi payment events (NO auth — HMAC only)
 // ---------------------------------------------------------------------------
 webhookRoutes.post("/wompi", async (c) => {
+  // 0. Per-IP rate limit check — BEFORE CPU-intensive HMAC verification
+  const clientIp = c.req.header("cf-connecting-ip") ?? "unknown";
+  const rateLimitAllowed = await checkWebhookRateLimit(c.env.THROTTLE_KV, clientIp);
+  if (!rateLimitAllowed) {
+    return c.json({ error: "rate_limit_exceeded" }, 429);
+  }
+
   // 1. Extract required headers for HMAC verification
   const transactionHash = c.req.header("x-transaction-hash");
   const timestamp = c.req.header("timestamp");

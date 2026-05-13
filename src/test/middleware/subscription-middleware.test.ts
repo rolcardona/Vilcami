@@ -22,6 +22,12 @@ vi.mock("../../services/subscription.service", () => ({
 vi.mock("../../services/plan-feature.service", () => ({
   hasFeature: vi.fn(),
   getDeviceLimit: vi.fn(),
+  PLAN_FEATURES: {
+    trial: { maxDevices: 3, readingsPerHour: 1, dataRetentionDays: 7, alertLevels: ["p0", "p1"], features: [] },
+    starter: { maxDevices: 5, readingsPerHour: 60, dataRetentionDays: 30, alertLevels: ["p0", "p1", "p2", "p3"], features: [] },
+    professional: { maxDevices: 15, readingsPerHour: 720, dataRetentionDays: 90, alertLevels: ["p0", "p1", "p2", "p3"], features: ["ai_diagnostic", "compliance_reports", "advanced_escalation"] },
+    enterprise: { maxDevices: Infinity, readingsPerHour: Infinity, dataRetentionDays: 365, alertLevels: ["p0", "p1", "p2", "p3"], features: ["ai_diagnostic", "compliance_reports", "advanced_escalation"] },
+  },
 }));
 
 vi.mock("../../utils/db.util", () => ({
@@ -35,7 +41,7 @@ import {
 } from "../../middleware/subscription.middleware";
 
 import { getSubscriptionStatus } from "../../services/subscription.service";
-import { hasFeature, getDeviceLimit } from "../../services/plan-feature.service";
+import { hasFeature, getDeviceLimit, PLAN_FEATURES } from "../../services/plan-feature.service";
 
 // ---------------------------------------------------------------------------
 // Typed mock references (after import so hoisting resolves)
@@ -308,5 +314,69 @@ describe("requireDeviceQuota", () => {
     expect(body.error).toBe("device_quota_exceeded");
     expect(body.currentCount).toBe(0);
     expect(body.maxAllowed).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getMinimumPlanForFeature — dynamic derivation from PLAN_FEATURES (Finding #21)
+// ---------------------------------------------------------------------------
+describe("getMinimumPlanForFeature — dynamic derivation from PLAN_FEATURES", () => {
+  // Import the module to access getMinimumPlanForFeature indirectly
+  // The function is not exported, so we test it through requireFeature responses
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it("derives minimum plan for ai_diagnostic from PLAN_FEATURES", async () => {
+    // ai_diagnostic is in professional and enterprise plans
+    // When a trial user lacks it, requireFeature should report "professional" as requiredPlan
+    mockGetSubscriptionStatus.mockResolvedValueOnce(makeSub({ planName: "trial", status: "trial", deviceCount: 1, maxDevices: 3 }));
+    mockHasFeature.mockReturnValueOnce(false);
+
+    const app = createAppWithMiddleware(requireFeature("ai_diagnostic" as FeatureName));
+    const res = await app.request("/test", undefined, createTestEnv());
+
+    expect(res.status).toBe(403);
+    const body = await res.json() as { error: string; requiredPlan: string };
+    expect(body.requiredPlan).toBe("professional");
+  });
+
+  it("derives minimum plan for compliance_reports from PLAN_FEATURES", async () => {
+    mockGetSubscriptionStatus.mockResolvedValueOnce(makeSub({ planName: "starter", deviceCount: 2 }));
+    mockHasFeature.mockReturnValueOnce(false);
+
+    const app = createAppWithMiddleware(requireFeature("compliance_reports" as FeatureName));
+    const res = await app.request("/test", undefined, createTestEnv());
+
+    expect(res.status).toBe(403);
+    const body = await res.json() as { error: string; requiredPlan: string };
+    expect(body.requiredPlan).toBe("professional");
+  });
+
+  it("derives minimum plan for advanced_escalation from PLAN_FEATURES", async () => {
+    mockGetSubscriptionStatus.mockResolvedValueOnce(makeSub({ planName: "starter", deviceCount: 2 }));
+    mockHasFeature.mockReturnValueOnce(false);
+
+    const app = createAppWithMiddleware(requireFeature("advanced_escalation" as FeatureName));
+    const res = await app.request("/test", undefined, createTestEnv());
+
+    expect(res.status).toBe(403);
+    const body = await res.json() as { error: string; requiredPlan: string };
+    expect(body.requiredPlan).toBe("professional");
+  });
+
+  it("falls back to enterprise for unknown feature not in any plan", async () => {
+    // Test that unknown features fall back to "enterprise"
+    // Since the dynamic derivation iterates all plans, a feature not in any returns "enterprise"
+    mockGetSubscriptionStatus.mockResolvedValueOnce(makeSub({ planName: "starter", deviceCount: 2 }));
+    mockHasFeature.mockReturnValueOnce(false);
+
+    const app = createAppWithMiddleware(requireFeature("nonexistent_feature" as FeatureName));
+    const res = await app.request("/test", undefined, createTestEnv());
+
+    expect(res.status).toBe(403);
+    const body = await res.json() as { error: string; requiredPlan: string };
+    expect(body.requiredPlan).toBe("enterprise");
   });
 });

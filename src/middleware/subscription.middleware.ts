@@ -9,7 +9,7 @@ import type { Context, Next } from "hono";
 import type { Env } from "../types/env";
 import type { FeatureName, PlanName } from "../types/billing.types";
 import { getSubscriptionStatus } from "../services/subscription.service";
-import { hasFeature, getDeviceLimit } from "../services/plan-feature.service";
+import { hasFeature, getDeviceLimit, PLAN_FEATURES } from "../services/plan-feature.service";
 import { getDrizzleDb } from "../utils/db.util";
 import { NotFoundError } from "../errors/not-found.error";
 
@@ -175,12 +175,17 @@ export function requireDeviceQuota() {
 
 // ---------------------------------------------------------------------------
 // Helper: minimum plan tier that includes a given feature
+// Derived dynamically from PLAN_FEATURES to avoid a second source of truth.
+// Plans are checked in tier order (trial → starter → professional → enterprise),
+// returning the first plan whose features array includes the requested feature.
 // ---------------------------------------------------------------------------
+const PLAN_TIER_ORDER: PlanName[] = ["trial", "starter", "professional", "enterprise"];
+
 function getMinimumPlanForFeature(featureName: FeatureName): PlanName {
-  if (featureName === "ai_diagnostic") return "professional";
-  if (featureName === "compliance_reports") return "professional";
-  if (featureName === "advanced_escalation") return "professional";
-  return "professional";
+  for (const plan of PLAN_TIER_ORDER) {
+    if (PLAN_FEATURES[plan].features.includes(featureName)) return plan;
+  }
+  return "enterprise";
 }
 
 // Extend Hono's context variable map for subscription middleware keys

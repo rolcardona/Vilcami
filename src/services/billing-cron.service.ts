@@ -131,8 +131,9 @@ async function processOrganizationBilling(
     effectivePeriodEnd > now &&
     effectivePeriodEnd - now <= EXPIRY_WARNING_WINDOW_MS
   ) {
+    // TODO: integrate notification-dispatcher.service.ts to send actual warning
     console.log(
-      `[billing-cron] Org ${organizationId}: subscription expires in ~3 days — sending warning notification`,
+      `[billing-cron] Org ${organizationId}: subscription expires in ~3 days — warning flag set (notification dispatch TODO)`,
     );
     warningSent = true;
   }

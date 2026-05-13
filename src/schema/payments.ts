@@ -11,6 +11,13 @@ export const paymentMethodEnum = text("payment_method", {
   enum: ["card", "pse", "nequi"],
 });
 
+/**
+ * NOTE (Finding #22): The `updated_at` column is auto-populated by a SQLite trigger
+ * (`trg_payments_updated_at`) defined in migration 0005_payments_updated_at_trigger.sql.
+ * This trigger sets updated_at = unixepoch() on every UPDATE, so the application layer
+ * does not need to manually set this field. The Drizzle schema still includes the
+ * default `(unixepoch())` for INSERT operations.
+ */
 export const payments = sqliteTable("payments", {
   id: text("id").primaryKey(),
   organizationId: text("organization_id")
