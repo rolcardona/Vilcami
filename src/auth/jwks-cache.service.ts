@@ -12,7 +12,7 @@ function getCacheKey(env: Env): string {
 }
 
 async function fetchJwksFromSupabase(env: Env): Promise<JsonWebKey[]> {
-  const jwksUrl = `${env.SUPABASE_URL}/auth/v1/jwks`;
+  const jwksUrl = `${env.SUPABASE_URL}/auth/v1/.well-known/jwks.json`;
   const response = await fetch(jwksUrl, {
     headers: { apikey: env.SUPABASE_ANON_KEY },
   });

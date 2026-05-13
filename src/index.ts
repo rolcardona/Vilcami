@@ -29,11 +29,16 @@ app.use("*", async (c, next) => {
     "http://localhost:5173",
     "http://localhost:5174",
     "http://localhost:5175",
+    "http://localhost:5176",
+    "http://localhost:5177",
     "http://localhost:4173",
   ].filter(Boolean);
 
+  const origin = c.req.header("Origin") ?? "";
+  const isLocalhost = origin.startsWith("http://localhost:");
+
   return cors({
-    origin: allowedOrigins,
+    origin: isLocalhost ? origin : allowedOrigins,
     allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
     exposeHeaders: ["X-Total-Count"],

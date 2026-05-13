@@ -34,14 +34,22 @@ function base64UrlToUint8Array(str: string): Uint8Array {
   return bytes;
 }
 
-async function importRsaPublicKey(jwk: JsonWebKey): Promise<CryptoKey> {
-  return crypto.subtle.importKey(
-    "jwk",
-    jwk,
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["verify"],
-  );
+type JwtAlgorithm = "RS256" | "ES256";
+
+function getKeyImportParams(alg: JwtAlgorithm): AlgorithmIdentifier | RsaHashedImportParams | EcKeyImportParams {
+  return alg === "RS256"
+    ? { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }
+    : { name: "ECDSA", namedCurve: "P-256" };
+}
+
+function getVerifyParams(alg: JwtAlgorithm): AlgorithmIdentifier | RsaPssParams | EcdsaParams {
+  return alg === "RS256"
+    ? "RSASSA-PKCS1-v1_5"
+    : { name: "ECDSA", hash: "SHA-256" };
+}
+
+async function importPublicKey(jwk: JsonWebKey, alg: JwtAlgorithm): Promise<CryptoKey> {
+  return crypto.subtle.importKey("jwk", jwk, getKeyImportParams(alg), false, ["verify"]);
 }
 
 export async function verifyJwt(
@@ -68,6 +76,8 @@ export async function verifyJwt(
     return { valid: false, error: "Missing kid in JWT header", statusCode: 401 };
   }
 
+  const alg: JwtAlgorithm = header.alg === "ES256" ? "ES256" : "RS256";
+
   // 3. Get JWKS public keys
   let publicKeys: Map<string, JsonWebKey>;
   try {
@@ -88,7 +98,7 @@ export async function verifyJwt(
   // 4. Import and verify signature
   let publicKey: CryptoKey;
   try {
-    publicKey = await importRsaPublicKey(publicKeyJwk);
+    publicKey = await importPublicKey(publicKeyJwk, alg);
   } catch {
     return { valid: false, error: "Invalid public key", statusCode: 401 };
   }
@@ -97,7 +107,7 @@ export async function verifyJwt(
   const signature = base64UrlToUint8Array(signatureB64);
 
   const isValid = await crypto.subtle.verify(
-    "RSASSA-PKCS1-v1_5",
+    getVerifyParams(alg),
     publicKey,
     signature,
     signInput,
@@ -121,23 +131,30 @@ export async function verifyJwt(
     return { valid: false, error: "Token expired", statusCode: 401 };
   }
 
-  // 7. Check issuer
+  // 7. Check issuer (Supabase GoTrue uses {SUPABASE_URL}/auth/v1 as issuer)
   const expectedIssuer = env.SUPABASE_URL;
-  if (payload.iss !== expectedIssuer) {
+  const expectedIssuerAlt = `${env.SUPABASE_URL}/auth/v1`;
+  if (payload.iss !== expectedIssuer && payload.iss !== expectedIssuerAlt) {
     return {
       valid: false,
-      error: `Invalid issuer: expected ${expectedIssuer}, got ${payload.iss}`,
+      error: `Invalid issuer: expected ${expectedIssuer} or ${expectedIssuerAlt}, got ${payload.iss}`,
       statusCode: 401,
     };
   }
 
-  // 8. Extract claims and build JwtPayload
+  // 8. Extract claims from app_metadata (fallback when custom access token hook isn't active)
+  const appMetadata = (payload.app_metadata ?? {}) as Record<string, unknown>;
+
   const aal = typeof payload.aal === "string" ? payload.aal : "aal1";
+
+  const role = (payload.role as string) !== "authenticated"
+    ? (payload.role as string)
+    : (appMetadata.role as string | undefined);
 
   const jwtPayload: JwtPayload = {
     sub: payload.sub as string,
-    org_id: (payload.org_id as string) ?? null,
-    role: (payload.role as "admin_vilcami" | "admin" | "user") ?? "user",
+    org_id: (payload.org_id as string) ?? (appMetadata.org_id as string) ?? null,
+    role: (role as "admin_vilcami" | "admin" | "user") ?? "user",
     mfa_verified: aal === "aal2",
     email: payload.email as string | undefined,
     exp: payload.exp as number,

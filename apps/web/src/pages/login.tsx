@@ -1,13 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/auth/supabase";
+import { useAuth } from "@/auth/auth-provider";
 import { GlassCard } from "@/components/layout/glass-card";
 
 export function LoginPage() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSignUp, setIsSignUp] = useState(false);
+
+  // Redirect authenticated users to dashboard
+  useEffect(() => {
+    if (user) navigate("/", { replace: true });
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,9 +27,11 @@ export function LoginPage() {
       if (isSignUp) {
         const { error: err } = await supabase.auth.signUp({ email, password });
         if (err) throw err;
+        setError("Cuenta creada. Revisa tu email para confirmar.");
       } else {
         const { error: err } = await supabase.auth.signInWithPassword({ email, password });
         if (err) throw err;
+        // AuthProvider.onAuthStateChange will set user, triggering the useEffect redirect
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error de autenticacion");

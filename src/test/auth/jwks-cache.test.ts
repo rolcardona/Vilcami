@@ -69,7 +69,7 @@ describe("JWKS Cache Service", () => {
     expect(keys.size).toBeGreaterThan(0);
     expect(keys.has("test-key-id")).toBe(true);
     expect(globalThis.fetch).toHaveBeenCalledWith(
-      "https://test-project.supabase.co/auth/v1/jwks",
+      "https://test-project.supabase.co/auth/v1/.well-known/jwks.json",
       expect.objectContaining({ headers: expect.objectContaining({ apikey: "test-anon-key" }) }),
     );
   });

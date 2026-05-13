@@ -21,6 +21,9 @@ const ALLOWED_STATUSES = new Set(["trial", "active", "past_due"]);
 // ---------------------------------------------------------------------------
 export function requireSubscription() {
   return async (c: Context<{ Bindings: Env }>, next: Next) => {
+    const role = (c.get("jwtPayload") as { role?: string } | undefined)?.role;
+    if (role === "admin_vilcami") { await next(); return; }
+
     const organizationId = c.get("organizationId") as string;
     if (!organizationId) {
       return c.json({ error: "Missing organizationId in context" }, 401);
@@ -86,6 +89,9 @@ export function requireSubscription() {
 // ---------------------------------------------------------------------------
 export function requireFeature(featureName: FeatureName) {
   return async (c: Context<{ Bindings: Env }>, next: Next) => {
+    const role = (c.get("jwtPayload") as { role?: string } | undefined)?.role;
+    if (role === "admin_vilcami") { await next(); return; }
+
     const organizationId = c.get("organizationId") as string;
     if (!organizationId) {
       return c.json({ error: "Missing organizationId in context" }, 401);
@@ -129,6 +135,9 @@ export function requireFeature(featureName: FeatureName) {
 // ---------------------------------------------------------------------------
 export function requireDeviceQuota() {
   return async (c: Context<{ Bindings: Env }>, next: Next) => {
+    const role = (c.get("jwtPayload") as { role?: string } | undefined)?.role;
+    if (role === "admin_vilcami") { await next(); return; }
+
     const organizationId = c.get("organizationId") as string;
     if (!organizationId) {
       return c.json({ error: "Missing organizationId in context" }, 401);
