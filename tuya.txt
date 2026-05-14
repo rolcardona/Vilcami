@@ -1,0 +1,579 @@
+Service Name
+Authorized Projects
+Expiration Time
+Status
+Operation
+IoT Core
+IoT Core provides the fundamental device connection and device management. The secured and reliable connection between your IoT application and devices allows to monitor and to manage your IoT assets.
+Vilcami Energy Optimization
+2026-05-28 09:03:54
+In service
+Subscribe to Resource Pack
+View Details
+Authorization Token Management
+Provides the authorization token management between cloud to cloud interconnection.
+Vilcami Energy Optimization
+Permanent
+In service
+Subscribe to Resource Pack
+View Details
+Smart Home Basic Service
+Provides Tuya smart home basic abilities
+Vilcami Energy Optimization
+Permanent
+In service
+Subscribe to Resource Pack
+View Details
+Data Dashboard Service
+Without compromising user privacy and data security, the IoT Data Analytics services provide insight into user experience and guidelines for product optimization.
+Vilcami Energy Optimization
+Permanent
+In service
+Subscribe to Resource Pack
+View Details
+Video Cloud Storage
+Provides developers with the ability to obtain IoT device videos from the cloud, allowing developers to embed videos into their applications.
+-
+-
+Not subscribed
+Free Trial
+View Details
+IoT Video Live Stream
+Provide live video streaming from IoT devices through multiple ways including WebRTC, RTSP, and HLS.
+-
+-
+Not subscribed
+Free Trial
+View Details
+IR Control Hub Open Service
+Provide OpenAPI for the control of universal Infrared remote connecting to multi-brand, multi-category devices.
+-
+-
+Not subscribed
+Free Trial
+View Details
+[Deprecate]Smart Home Scene Linkage
+Support user-customized smart home device automation, aim to provide the ultimate smart home experience.
+Vilcami Energy Optimization
+Permanent
+In service
+Subscribe to Resource Pack
+View Details
+Smart Lock Open Service
+Provide OpenAPI to manage smart lock-related information, including user access, password, device log, and more.
+-
+-
+Not subscribed
+Free Trial
+View Details
+[Deprecate]Device OTA Update
+> This API or API group is deprecated. You can use or migrate to the recommended alternative API. For more information, see [Deprecated API services](https://developer.tuya.com/en/docs/cloud/upgrade-notes?id=Kcok02xpc6xp5#deprecation). Device Firmware OTA Update Services ensures IoT devices can be quickly updated for product experience improvement and also preventing security issues.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Beta APIs
+Provide the latest APIs developed by Tuya, and developers can apply for trial as needed.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Device Distribution
+Device Distribution provides developers with map-based online viewing capabilities of equipment distribution to realize equipment positioning, search, and management.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Device Maintenance
+Device Monitoring provides developers with the ability to view a single equipment or multiple equipments online in real time to achieve remote equipment monitoring.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Email Service
+Tuya Email Service is a cost-efficient, flexible, and scalable email service that allows sending emails from applications to immediately reach customers.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Voice Message Service
+Tuya Voice Message Service assists developers to reach specific numbers through global carriers in times of immediate emergency.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Mobile Push Notification Service
+Mobile Push Notification Service allows developers to edit and send customized push notifications to Tuya-Mobile-Apps under their accounts.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Short Message Service
+Tuya Short Message Service based on IoT Platform helps to build communication channels to reach global customers.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Weather Service
+Inquiry about real-time weather or 7-day-forecast through latitude and longitude, and easily add weather service to your vertical industry applications.
+-
+-
+Not subscribed
+Free Trial
+View Details
+LBS
+Location Service provides two-way conversion between IP address and geographical address, helps developers to quickly integrate into their applications.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Country and City Info
+Provide multilingual country information, city information query APIs.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Device Status Notification
+In the form of MQTTmessage, the device status notification service actively notifies the terminal application of the change of device status, device alarm message and other
+-
+-
+Not subscribed
+Free Trial
+View Details
+Industry Project Client Service
+Provide the user login interface required by the client SDKs.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Device Location Service
+Provide real-time location query of equipment, track query of historical time period, and management related services of geofence.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Smart Community Data Integration Service
+Based on community services, update basic information of the community in real time, and build unified community management databases with households (people) as the core. Houses, addresses, vehicles, relationships, and other details are linked by household in the databases.
+-
+-
+Not subscribed
+Free Trial
+View Details
+[Deprecate]Device Log Query
+> This API or API group is deprecated. You can use or migrate to the recommended alternative API. For more information, see [Deprecated API services](https://developer.tuya.com/en/docs/cloud/upgrade-notes?id=Kcok02xpc6xp5#deprecation). Query about devices operation log and device status log to quickly locate device abnormal activities or failure.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Pet Detection
+Based on advanced computer vision algorithm to detect pet presence in the picture, and take good care of our pets.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Vehicle Detection
+Based on advanced computer vision algorithm to detect car presence in the pictures. Embed image recognition into the application.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Voice Control of Smart Devices (No NLU)
+Provides APIs for discovering devices, controlling devices, querying device status, executing scenes, and reading scene lists, allowing smart speakers, apps, or other terminals to control products.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Seat Management of Campus Office
+Provide the ability of shared seat reservation and fixed seat allocation
+-
+-
+Not subscribed
+Free Trial
+View Details
+[Deprecate]General Permissions Management
+> This API or API group is deprecated. You can use or migrate to the recommended alternative API. For more information, see [Deprecated API services](https://developer.tuya.com/en/docs/cloud/upgrade-notes?id=Kcok02xpc6xp5#deprecation). Provide users, roles, and access models to implement effective Role-based access control systems to restricting system access to authorized users.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Smart Card Issuer Service
+Support to integrate smart badge or key card machine into the Tuya IoT Platform and manage smart key from remote.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Space Environmental Management
+Provide real-time spatial environment data and link intelligent devices to adjust the environment.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Basic Information Management of Campus Office
+Provide the service to create the fundamental system of users, roles, and access control. Applicable to the school campus, office building management scenarios.
+-
+-
+Not subscribed
+Free Trial
+View Details
+General Optical Character Recognition
+Optical Character Recognition service supports Chinese, English, numbers, and common symbol recognition. It can significantly improve the efficiency of data entry or proofreading.
+-
+-
+Not subscribed
+Free Trial
+View Details
+ID Card Recognition
+ID Card Recognition services detect the text information of second-generation ID cards of China, which is applicable to identity verification scenarios.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Lighting Management for Campus
+Provide intelligent lighting management capability
+-
+-
+Not subscribed
+Free Trial
+View Details
+App Mall Open Service
+An open service based on App Mall to help seller connect App Mall to external ERP systems.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Conference Reservation System
+Provide meeting room reservation management, automatic meeting attendee invitation, sign-in, and reminder. Through the human presence detection algorithm, also provides automatic release of the unattended meeting room.
+-
+-
+Not subscribed
+Free Trial
+View Details
+SaaS Basic Service of Commercial Lighting
+Tuya Commercial Lighting SaaS provides a diverse range of lighting control policies for various commercial lighting scenarios and enables efficient lighting management in commercial spaces.
+-
+-
+Not subscribed
+Subscribe to Resource Pack
+View Details
+Foot Traffic Analytics
+Analyzing data collected by AI cameras and edge gateways can deliver a holistic view of foot traffic. With a mix of trend and funnel analytics, retailers can gain new insights into their store performance and optimize marketing and merchandising strategies.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Power Management
+Provide energy consumption statistics capability and support hourly, daily and monthly energy consumption information statistics.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Industry General Log Service
+Provides two custom log service interfaces for adding and querying. Relying on the Tuya Cloud big data service, it provides 3 months of log storage capacity. The free version can be stored for up to 7 days, and the paid version can be stored for up to 3 years.
+-
+-
+Not subscribed
+Free Trial
+View Details
+IoT SIM Card
+IoT SIM Card service provides IoT devices with global cellular network coverage, and also allows account balance inquiry preventing device connection interruption.
+-
+-
+Not subscribed
+Free Trial
+View Details
+[Deprecate]Industrial General Device Group Management
+> This API or API group is deprecated. You can use or migrate to the recommended alternative API. For more information, see [Deprecated API services](https://developer.tuya.com/en/docs/cloud/upgrade-notes?id=Kcok02xpc6xp5#deprecation). Provide APIs to control the IoT device group, including functions such as create, delete, edit, etc.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Smart Home Data Profile
+Provide masked user data of your App, and create the user-persona information for a more efficient marketing strategy.
+-
+-
+Not subscribed
+Subscribe to Resource Pack
+View Details
+[Deprecate]Industrial General Scene Linkage
+> This API or API group is deprecated. You can use or migrate to the recommended alternative API. For more information, see [Deprecated API services](https://developer.tuya.com/en/docs/cloud/upgrade-notes?id=Kcok02xpc6xp5#deprecation). Provides scenario automation capabilities and supports triggering multiple devices to perform different actions at the same time based on any device, time or environment. For example, turn on classroom lights and air-conditioning equipment at 9 o'clock, and turn on the air-conditioning to cool when the indoor temperature reaches 30 degrees.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Smart Home Content Manage
+Provide content management APIs for OEM apps.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Device Vibration Analysis
+To detect real-time device vibration, temperature, and other indicators that affect devices' operation in an industrial environment. You can conduct preventive maintenance and better manage the devices with reduced O&M costs.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Smart Shop Inspection
+Provide inspection services for illegal behavior in stores, such as not wearing work clothes, not wearing work hats, smoking, sleeping posts, and making phone calls.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Video Shop Inspection
+With smart security cameras, get the live video streams, recorded videos, and captured images of stores to optimize store operations.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Industrial Energy Consumption Analysis
+Provide multi-dimensional statistical analysis capabilities of energy consumption data such as water supply, electricity and gas, and build a digital energy management system.
+-
+-
+Not subscribed
+Free Trial
+View Details
+General Scene Template
+Provides batch creation automation，it is applicable to smart classrooms, dormitories, apartments and other scenes with a large number of similar spaces that need to be configured with automation.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Power Management
+Provide capabilities to manage the prepayment feature of a specified device.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Power Safety
+Provide capabilities to set up and query the power safety rules of a specified device.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Industrial Environment Analytics
+Provide capabilities to perform multi-dimensional statistical analytics of various gas data in an industrial environment, and build a digital environmental management system.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Smart Access Control Service
+Provide unified management service for access control at the entrance and exit of the people's Bank of China, which can manage all access control equipment in the jurisdiction, and provide API to facilitate the access of third-party platforms.
+-
+-
+Not subscribed
+Free Trial
+View Details
+General Capability in Public Area
+This topic describes the general features of Tuya OpenAPIs that apply to devices in the public area, so as to walk you through this system.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Customer Feedback
+View and process user feedback information using Tuya Smart Home SDK applications such as Smart Life, Tuya Smart, OEM App, etc.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Face Database Management
+Manage pictures in the face database. The pictures are used by face recognition access control devices.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Hotel SaaS Application Development(Commercial Edition)
+Provide hotel SaaS including but not limited to account management, project management, space management and other capabilities, which can be called by developers.
+-
+-
+Not subscribed
+Subscribe to Resource Pack
+View Details
+Gateway Opening Service
+The gateway device works as a bridge for the communications between sub-devices and the network router, provides general connection capabilities, and supports gateway failover.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Text-to-Speech Service
+Provide the service of pushing short text synthetic audio to doodle intelligent voice device for audio broadcast (China only).
+-
+-
+Not subscribed
+Free Trial
+View Details
+Elevator Control Service
+Provide senseless access, face recognition, QR code, mobile phone Bluetooth and other ways to open the door and take the elevator; Intercom access control linkage automatic call; Indoor visual reservation call, visitor authorized call and other services can manage all elevator control equipment within the jurisdiction, and provide API to facilitate the access of third-party platforms.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Intelligent Circuit Breaker Service
+Monitoring and early warning, automatic identification of hazards and predictive analysis and diagnosis of electrical fire safety hazards such as over-temperature, unstable voltage, overload, leakage, short circuit, etc. When an abnormality is found, the alarm information will be transmitted to the data center in real time through the cloud platform, and the system will send the alarm information to the relevant responsible person through intelligent research and judgment for timely response and processing.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Fire Protection Service
+Real-time monitoring of the status of fire exits and key parts, and timely discovery of the status information of fire hydrants, fire extinguishers, water guns, water hoses and other fire protection facilities. When the normally open fire door is closed or the normally closed fire door is opened, the fire door alarm will be issued. Alarm, timely detection of abnormal status of fire doors.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Smart Water Meter Service
+Provide data collection and reporting of water flow, monthly water consumption, daily water consumption, water valve switch status, etc., real-time collection of current water representation values, support for remote adjustment of water meter valve opening and other services.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Device Cloud to Cloud Integration Service
+Provide device registration / activation online / device uplink and downlink data, etc., to facilitate the access of the third-party business system to the platform
+-
+-
+Not subscribed
+Free Trial
+View Details
+Store Management
+Provide an asset management system that best fits the retail industry, and digitize physical information such as location, business hours, and floor plans to form centralized management and control.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Body Key Point Recognition
+Detect the human body in the picture and return the coordinates of 17 body gesture points, which is suitable for entertainment scenes such as short video, make up for photos, etc.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Smart Security Open Capability
+Security Open Capability provides personnel, organization and management capabilities related to security business, security equipment DP information query, equipment control and other capabilities.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Sweeping Robot Open Service
+Provide the data acquisition interface of sweeping robot map data transmission, cleaning records and other data, which can be called by application developers.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Perimeter Open Capability
+Provide perimeter electronic fences for external walls, fences, gates and other areas, provide real-time monitoring in the armed state, report alarm information.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Vehicle Opening Capacity
+Provide APIs for the intelligent parking lot system, such as access authorization, gate control, entry and exit flow, visitor management, and so on.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Smart Mini App
+According to the provided API, the devices in the third-party business system can be connected to the Tuya IoT platform and provided to Tuya business applications.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Camera Service
+Provide real-time camera playback, PTZ control, arming and disarming, snapshots, alarm events and AI event reporting.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Indoor and outdoor fusion locator Opening Ability
+Indoor and outdoor fusion locator Opening Ability
+-
+-
+Not subscribed
+Free Trial
+View Details
+Device Timer
+Provides the ability to perform specific tasks on-premises and in the cloud at timed intervals
+-
+-
+Not subscribed
+Free Trial
+View Details
+Industry Basic Service
+Provides the underlying service interface related to asset management
+-
+-
+Not subscribed
+Free Trial
+View Details
+Identity and Access Management
+The IAM service helps you safely and accurately manage all spaces and devices resource permissions.
+-
+-
+Not subscribed
+Free Trial
+View Details
+Agent Open Service
+Agent OpenAPI
+-
+-
+Not subscribed
+Subscribe to Resource Pack
+View Details
+Device data sharing
+Enterprises that comply with EU data laws can obtain user-authorized device network data.
+-
+-
+Not subscribed
+Subscribe to Resource Pack
+View Details
+File Library API
+Enables file retrieval based on key-value pair tags for files stored in the file repository.
+-
+-
+Not subscribed
+Subscribe to Resource Pack
+View Details
